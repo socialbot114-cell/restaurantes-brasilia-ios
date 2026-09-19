@@ -47,6 +47,7 @@ private struct HomeView: View {
                     }
                 }
                 .padding()
+                .safeAreaPadding(.bottom, 96)
             }
             .navigationTitle("Restaurantes Brasília")
         }
@@ -84,6 +85,7 @@ private struct ExploreView: View {
                 }
             }
             .navigationTitle("Explorar")
+            .safeAreaPadding(.bottom, 96)
             .toolbar { if catalog.query.isEmpty == false || catalog.neighborhood != "Todos" || catalog.category != "Todos" { Button("Limpar") { catalog.query = ""; catalog.neighborhood = "Todos"; catalog.category = "Todos" } } }
         }
     }

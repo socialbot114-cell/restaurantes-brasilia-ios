@@ -31,8 +31,30 @@ final class RestaurantCatalog: ObservableObject {
     }
 
     var filtered: [Restaurant] {
+        Self.filter(restaurants, query: query, neighborhood: neighborhood, category: category)
+    }
+
+    var topRated: [Restaurant] {
+        restaurants.filter(\.hasRating).sorted { $0.qualityScore > $1.qualityScore }
+    }
+
+    var mostReviewed: [Restaurant] {
+        restaurants.filter { ($0.reviewCount ?? 0) > 0 }.sorted { ($0.reviewCount ?? 0) > ($1.reviewCount ?? 0) }
+    }
+
+    var categoryRanking: [(name: String, count: Int)] {
+        let counts = Dictionary(grouping: restaurants, by: \.displayCategory).mapValues(\.count)
+        return counts.map { ($0.key, $0.value) }.sorted { $0.count > $1.count }
+    }
+
+    var regionRanking: [(name: String, count: Int)] {
+        let counts = Dictionary(grouping: restaurants, by: \.displayNeighborhood).mapValues(\.count)
+        return counts.map { ($0.key, $0.value) }.sorted { $0.count > $1.count }
+    }
+
+    static func filter(_ items: [Restaurant], query: String, neighborhood: String = "Todos", category: String = "Todos") -> [Restaurant] {
         let normalized = query.folding(options: .diacriticInsensitive, locale: .current).lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        return restaurants.filter { restaurant in
+        return items.filter { restaurant in
             (normalized.isEmpty || restaurant.searchableText.contains(normalized)) &&
                 (neighborhood == "Todos" || restaurant.displayNeighborhood == neighborhood) &&
                 (category == "Todos" || restaurant.displayCategory == category)

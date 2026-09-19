@@ -27,6 +27,14 @@ struct Restaurant: Codable, Identifiable, Hashable {
     var displayCategory: String { category?.nilIfEmpty ?? "Restaurante" }
     var displayNeighborhood: String { neighborhood?.nilIfEmpty ?? "Distrito Federal" }
     var normalizedWebsiteURL: URL? { Self.normalizeWebsiteURL(website) }
+    var hasRating: Bool { rating != nil && (reviewCount ?? 0) > 0 }
+    var qualityScore: Double {
+        guard let rating else { return 0 }
+        let reviews = Double(reviewCount ?? 0)
+        let prior = 4.0
+        let priorWeight = 20.0
+        return (rating * reviews + prior * priorWeight) / (reviews + priorWeight)
+    }
     var searchableText: String {
         [name, displayCategory, displayNeighborhood, address ?? ""].joined(separator: " ").folding(options: .diacriticInsensitive, locale: .current).lowercased()
     }

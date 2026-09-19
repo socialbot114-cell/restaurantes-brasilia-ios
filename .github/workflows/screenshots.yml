@@ -1,0 +1,50 @@
+name: Restaurantes Brasília screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate --spec project.yml
+      - name: Create available iPhone simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          runtime_id=$(xcrun simctl list runtimes available -j | python3 -c 'import json,sys; runtimes=json.load(sys.stdin)["runtimes"]; available=[r["identifier"] for r in runtimes if r.get("isAvailable") and r["name"].startswith("iOS")]; print(sorted(available)[-1])')
+          device_type=$(xcrun simctl list devicetypes | awk -F '[()]' '/iPhone/{print $2; exit}')
+          test -n "$runtime_id" -a -n "$device_type"
+          udid=$(xcrun simctl create "JERV Restaurantes iPhone" "$device_type" "$runtime_id")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+      - name: Run screenshot UI tests
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project RestaurantesBrasilia.xcodeproj \
+            -scheme RestaurantesBrasilia \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -resultBundlePath "$RUNNER_TEMP/restaurantes.xcresult" \
+            -only-testing:RestaurantesBrasiliaUITests \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Export PNG attachments
+        run: |
+          set -euo pipefail
+          xcrun xcresulttool export attachments \
+            --path "$RUNNER_TEMP/restaurantes.xcresult" \
+            --output-path "$RUNNER_TEMP/restaurantes-screenshots"
+          find "$RUNNER_TEMP/restaurantes-screenshots" -type f -name '*.png' -print
+      - uses: actions/upload-artifact@v4
+        with:
+          name: restaurantes-brasilia-screenshots
+          path: ${{ runner.temp }}/restaurantes-screenshots/**/*.png

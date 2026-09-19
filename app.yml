@@ -1,0 +1,16 @@
+name: Restaurantes Brasília
+product_name: RestaurantesBrasilia
+bundle_id: br.com.restaurantes.bsb
+sku: restaurantes-brasilia
+app_store_id: "6813989690"
+platform: ios
+deployment_target: "17.0"
+template: ios-swiftui-directory
+catalog:
+  path: Resources/Catalog/catalog.json
+  required_fields: [id, name, source, last_verified]
+privacy_manifest: Resources/PrivacyInfo.xcprivacy
+release:
+  artifact_name: restaurantes-brasilia-ios-ipa
+  scheme: RestaurantesBrasilia
+  test_destination: "platform=iOS Simulator,name=iPhone 17,OS=latest"

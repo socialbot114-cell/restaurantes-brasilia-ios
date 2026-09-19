@@ -1,0 +1,36 @@
+import Foundation
+
+struct Restaurant: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let category: String?
+    let neighborhood: String?
+    let address: String?
+    let phone: String?
+    let website: String?
+    let rating: Double?
+    let reviewCount: Int?
+    let source: String
+    let sourceURL: String?
+    let lastVerified: String
+    let dataStatus: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, category, neighborhood, address, phone, website, rating
+        case reviewCount = "review_count"
+        case source
+        case sourceURL = "source_url"
+        case lastVerified = "last_verified"
+        case dataStatus = "data_status"
+    }
+
+    var displayCategory: String { category?.nilIfEmpty ?? "Restaurante" }
+    var displayNeighborhood: String { neighborhood?.nilIfEmpty ?? "Distrito Federal" }
+    var searchableText: String {
+        [name, displayCategory, displayNeighborhood, address ?? ""].joined(separator: " ").folding(options: .diacriticInsensitive, locale: .current).lowercased()
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
+}

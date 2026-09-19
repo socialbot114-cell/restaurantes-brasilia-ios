@@ -1,0 +1,22 @@
+name: Restaurantes Brasília validation
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate with JERV
+        run: python3 tools/jerv_cli.py validate app.yml
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate --spec project.yml
+      - name: Run tests
+        run: xcodebuild test -project RestaurantesBrasilia.xcodeproj -scheme RestaurantesBrasilia -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' CODE_SIGNING_ALLOWED=NO

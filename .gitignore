@@ -1,0 +1,10 @@
+*.xcodeproj/
+DerivedData/
+build/
+reports/jerv/
+*.p8
+*.cer
+*.key
+*.mobileprovision
+*.jks
+*.keystore

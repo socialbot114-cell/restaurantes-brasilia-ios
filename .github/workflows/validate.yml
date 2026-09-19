@@ -21,4 +21,10 @@ jobs:
       - name: Generate project
         run: xcodegen generate --spec project.yml
       - name: Run tests
-        run: xcodebuild test -project RestaurantesBrasilia.xcodeproj -scheme RestaurantesBrasilia -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' CODE_SIGNING_ALLOWED=NO
+        run: |
+          if xcrun simctl list devices available | grep -q 'iPhone'; then
+            device_id=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')
+            xcodebuild test -project RestaurantesBrasilia.xcodeproj -scheme RestaurantesBrasilia -destination "id=$device_id" CODE_SIGNING_ALLOWED=NO
+          else
+            xcodebuild build-for-testing -project RestaurantesBrasilia.xcodeproj -scheme RestaurantesBrasilia -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+          fi

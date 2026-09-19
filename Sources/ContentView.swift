@@ -179,7 +179,7 @@ private struct SearchField: View {
     var body: some View { HStack { Image(systemName: "magnifyingglass"); TextField("Buscar restaurante, prato ou região", text: $text).textInputAutocapitalization(.never) }.padding(12).background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 14)) }
 }
 
-private struct SectionTitle: View { let title: String; let count: Int; var body: some View { HStack { Text(title).font(.title2.bold()); Spacer(); Text("\(count)").foregroundStyle(.secondary) } }
+private struct SectionTitle: View { let title: String; let count: Int; var body: some View { HStack { Text(title).font(.title2.bold()); Spacer(); Text("\(count)").foregroundStyle(.secondary) } } }
 
 private struct ActionButton: View {
     let title: String

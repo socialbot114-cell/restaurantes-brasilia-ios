@@ -12,6 +12,8 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Install JERV dependencies
+        run: python3 -m pip install --disable-pip-version-check PyYAML
       - name: Validate with JERV
         run: python3 tools/jerv_cli.py validate app.yml
       - name: Install XcodeGen

@@ -7,8 +7,18 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JERV release contract
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --disable-pip-version-check PyYAML
+          .venv/bin/python tools/jerv_cli.py release-check app.yml
   release:
-    uses: socialbot114-cell/jerv/.github/workflows/ios-testflight.yml@main
+    needs: preflight
+    uses: socialbot114-cell/jerv/.github/workflows/ios-testflight.yml@62f0d7cbb425fba144ff11fcf008d27b3c77bbf1
     with:
       project_dir: .
       scheme: RestaurantesBrasilia

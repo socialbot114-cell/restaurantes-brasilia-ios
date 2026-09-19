@@ -26,8 +26,20 @@ struct Restaurant: Codable, Identifiable, Hashable {
 
     var displayCategory: String { category?.nilIfEmpty ?? "Restaurante" }
     var displayNeighborhood: String { neighborhood?.nilIfEmpty ?? "Distrito Federal" }
+    var normalizedWebsiteURL: URL? { Self.normalizeWebsiteURL(website) }
     var searchableText: String {
         [name, displayCategory, displayNeighborhood, address ?? ""].joined(separator: " ").folding(options: .diacriticInsensitive, locale: .current).lowercased()
+    }
+
+    static func normalizeWebsiteURL(_ value: String?) -> URL? {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidate = trimmed.contains("://") ? trimmed : "https://\(trimmed)"
+        guard let components = URLComponents(string: candidate),
+              let scheme = components.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              components.host != nil else { return nil }
+        return components.url
     }
 }
 

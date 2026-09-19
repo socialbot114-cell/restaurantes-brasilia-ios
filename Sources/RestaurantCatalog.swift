@@ -1,14 +1,25 @@
 import Foundation
 import Combine
 
+enum CatalogLoadState: Equatable {
+    case loading
+    case loaded
+    case failed(String)
+}
+
 final class RestaurantCatalog: ObservableObject {
     @Published private(set) var restaurants: [Restaurant] = []
+    @Published private(set) var loadState: CatalogLoadState = .loading
     @Published var query = ""
     @Published var neighborhood = "Todos"
     @Published var category = "Todos"
 
-    init() {
-        load()
+    init(bundle: Bundle = .main) {
+        load(bundle: bundle)
+    }
+
+    init(data: Data) {
+        load(data: data)
     }
 
     var neighborhoods: [String] {
@@ -28,10 +39,25 @@ final class RestaurantCatalog: ObservableObject {
         }
     }
 
-    private func load() {
-        guard let url = Bundle.main.url(forResource: "catalog", withExtension: "json", subdirectory: "Catalog"),
-              let data = try? Data(contentsOf: url),
-              let decoded = try? JSONDecoder().decode([Restaurant].self, from: data) else { return }
+    private func load(bundle: Bundle) {
+        guard let url = bundle.url(forResource: "catalog", withExtension: "json", subdirectory: "Catalog"),
+              let data = try? Data(contentsOf: url) else {
+            loadState = .failed("Não foi possível carregar o catálogo.")
+            return
+        }
+        load(data: data)
+    }
+
+    private func load(data: Data) {
+        guard let decoded = try? JSONDecoder().decode([Restaurant].self, from: data) else {
+            loadState = .failed("O catálogo não pôde ser lido.")
+            return
+        }
+        guard decoded.isEmpty == false else {
+            loadState = .failed("O catálogo está vazio.")
+            return
+        }
         restaurants = decoded
+        loadState = .loaded
     }
 }

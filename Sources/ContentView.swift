@@ -34,6 +34,7 @@ private struct HomeView: View {
                     .accessibilityElement(children: .combine)
 
                     SearchField(text: $catalog.query)
+                    CatalogStatusView(state: catalog.loadState)
                     SectionTitle(title: "Em destaque", count: catalog.filtered.count)
                     LazyVStack(spacing: 12) {
                         ForEach(catalog.filtered.prefix(12)) { restaurant in
@@ -62,6 +63,9 @@ private struct ExploreView: View {
         NavigationStack {
             List {
                 Section("Buscar") { SearchField(text: $catalog.query) }
+                if catalog.loadState != .loaded {
+                    CatalogStatusView(state: catalog.loadState)
+                }
                 Section("Região") {
                     Picker("Região", selection: $catalog.neighborhood) {
                         ForEach(catalog.neighborhoods, id: \.self) { Text($0).tag($0) }
@@ -138,12 +142,17 @@ private struct RestaurantDetailView: View {
                     }
                     .accessibilityLabel(favorites.contains(restaurant.id) ? "Remover dos favoritos" : "Adicionar aos favoritos")
                 }
-                if let rating = restaurant.rating { Label(String(format: "%.1f", rating), systemImage: "star.fill").foregroundStyle(.orange) }
+                if restaurant.rating != nil || restaurant.reviewCount != nil {
+                    HStack(spacing: 14) {
+                        if let rating = restaurant.rating { Label(String(format: "%.1f", rating), systemImage: "star.fill").foregroundStyle(.orange) }
+                        if let reviewCount = restaurant.reviewCount { Text("\(reviewCount) avaliações").foregroundStyle(.secondary) }
+                    }
+                }
                 if let address = restaurant.address, !address.isEmpty { Label(address, systemImage: "mappin.and.ellipse") }
                 if let verified = restaurant.lastVerified.nilIfEmpty { Text("Verificado em \(verified)").font(.footnote).foregroundStyle(.secondary) }
                 VStack(spacing: 10) {
                     if let phone = restaurant.phone, let url = URL(string: "tel:\(phone.filter { $0.isNumber })") { ActionButton(title: "Ligar", systemImage: "phone", url: url, openURL: openURL) }
-                    if let website = restaurant.website, let url = URL(string: website) { ActionButton(title: "Abrir site", systemImage: "safari", url: url, openURL: openURL) }
+                    if let url = restaurant.normalizedWebsiteURL { ActionButton(title: "Abrir site", systemImage: "safari", url: url, openURL: openURL) }
                     let query = restaurant.address ?? "\(restaurant.name), Brasília DF"
                     if let url = URL(string: "https://www.google.com/maps/search/?api=1&query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "Brasilia")") { ActionButton(title: "Como chegar", systemImage: "map", url: url, openURL: openURL) }
                 }
@@ -178,7 +187,22 @@ private struct RestaurantCard: View {
 
 private struct SearchField: View {
     @Binding var text: String
-    var body: some View { HStack { Image(systemName: "magnifyingglass"); TextField("Buscar restaurante, prato ou região", text: $text).textInputAutocapitalization(.never) }.padding(12).background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 14)) }
+    var body: some View { HStack { Image(systemName: "magnifyingglass"); TextField("Buscar restaurante, categoria ou região", text: $text).textInputAutocapitalization(.never) }.padding(12).background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 14)) }
+}
+
+private struct CatalogStatusView: View {
+    let state: CatalogLoadState
+
+    var body: some View {
+        switch state {
+        case .loading:
+            ProgressView("Carregando catálogo…")
+        case .loaded:
+            EmptyView()
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(.secondary)
+        }
+    }
 }
 
 private struct SectionTitle: View { let title: String; let count: Int; var body: some View { HStack { Text(title).font(.title2.bold()); Spacer(); Text("\(count)").foregroundStyle(.secondary) } } }

@@ -7,6 +7,12 @@ enum CatalogLoadState: Equatable {
     case failed(String)
 }
 
+struct RankEntry: Identifiable {
+    let name: String
+    let count: Int
+    var id: String { name }
+}
+
 final class RestaurantCatalog: ObservableObject {
     @Published private(set) var restaurants: [Restaurant] = []
     @Published private(set) var loadState: CatalogLoadState = .loading
@@ -42,14 +48,14 @@ final class RestaurantCatalog: ObservableObject {
         restaurants.filter { ($0.reviewCount ?? 0) > 0 }.sorted { ($0.reviewCount ?? 0) > ($1.reviewCount ?? 0) }
     }
 
-    var categoryRanking: [(name: String, count: Int)] {
+    var categoryRanking: [RankEntry] {
         let counts = Dictionary(grouping: restaurants, by: \.displayCategory).mapValues(\.count)
-        return counts.map { ($0.key, $0.value) }.sorted { $0.count > $1.count }
+        return counts.map { RankEntry(name: $0.key, count: $0.value) }.sorted { $0.count > $1.count }
     }
 
-    var regionRanking: [(name: String, count: Int)] {
+    var regionRanking: [RankEntry] {
         let counts = Dictionary(grouping: restaurants, by: \.displayNeighborhood).mapValues(\.count)
-        return counts.map { ($0.key, $0.value) }.sorted { $0.count > $1.count }
+        return counts.map { RankEntry(name: $0.key, count: $0.value) }.sorted { $0.count > $1.count }
     }
 
     static func filter(_ items: [Restaurant], query: String, neighborhood: String = "Todos", category: String = "Todos") -> [Restaurant] {

@@ -25,15 +25,21 @@ private struct HomeView: View {
     @State private var query = ""
     @State private var selectedCategory: String?
 
-    private let intents: [(label: String, category: String)] = [
-        ("Café", "Cafeteria"),
-        ("Pizza", "Pizzaria"),
-        ("Hambúrguer", "Hamburgueria"),
-        ("Japonesa", "Japonesa"),
-        ("Brasileira", "Brasileira"),
-        ("Doces", "Doces"),
-        ("Saudável", "Saudável"),
-        ("Italiana", "Italiana")
+    private struct Intent: Identifiable {
+        let label: String
+        let category: String
+        var id: String { category }
+    }
+
+    private let intents: [Intent] = [
+        Intent(label: "Café", category: "Cafeteria"),
+        Intent(label: "Pizza", category: "Pizzaria"),
+        Intent(label: "Hambúrguer", category: "Hamburgueria"),
+        Intent(label: "Japonesa", category: "Japonesa"),
+        Intent(label: "Brasileira", category: "Brasileira"),
+        Intent(label: "Doces", category: "Doces"),
+        Intent(label: "Saudável", category: "Saudável"),
+        Intent(label: "Italiana", category: "Italiana")
     ]
 
     private var isBrowsing: Bool { !query.isEmpty || selectedCategory != nil }
@@ -51,8 +57,8 @@ private struct HomeView: View {
                     header
                     SearchBar(text: $query, placeholder: "Restaurante, categoria ou região")
 
-                    if catalog.loadState == .failed {
-                        CatalogStatusView(state: catalog.loadState)
+                    if case .failed(let message) = catalog.loadState {
+                        ContentUnavailableView("Catálogo indisponível", systemImage: "exclamationmark.triangle", description: Text(message))
                     } else if isBrowsing {
                         browsingResults
                     } else {
@@ -120,9 +126,9 @@ private struct HomeView: View {
                 HStack { Text("O que você quer hoje?").font(.title3.bold()); Spacer() }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(intents, id: \.category) { intent in
-                            intentChip(intent)
-                        }
+                    ForEach(intents) { intent in
+                        intentChip(intent)
+                    }
                     }
                 }
             }
@@ -138,7 +144,7 @@ private struct HomeView: View {
         }
     }
 
-    private func intentChip(_ intent: (label: String, category: String)) -> some View {
+    private func intentChip(_ intent: Intent) -> some View {
         let style = CuisineStyle.identity(for: intent.category)
         return Button {
             selectedCategory = intent.category
@@ -162,12 +168,12 @@ private struct HomeView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 14) {
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, restaurant in
+                    ForEach(items) { restaurant in
                         NavigationLink { RestaurantDetailView(restaurant: restaurant, favorites: favorites) } label: {
                             HeroCard(restaurant: restaurant)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("hero-\(index)")
+                        .accessibilityIdentifier("hero-\(restaurant.id)")
                     }
                 }
             }
@@ -178,7 +184,7 @@ private struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Explorar por cozinha").font(.title3.bold())
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 12)], spacing: 12) {
-                ForEach(catalog.categoryRanking.prefix(8), id: \.name) { item in
+                ForEach(catalog.categoryRanking.prefix(8)) { item in
                     let style = CuisineStyle.identity(for: item.name)
                     Button {
                         selectedCategory = item.name
@@ -250,8 +256,8 @@ private struct ExploreView: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(.secondary)
 
-                    if catalog.loadState == .failed {
-                        CatalogStatusView(state: catalog.loadState)
+                    if case .failed(let message) = catalog.loadState {
+                        ContentUnavailableView("Catálogo indisponível", systemImage: "exclamationmark.triangle", description: Text(message))
                     } else if results.isEmpty {
                         ContentUnavailableView("Nenhum resultado", systemImage: "magnifyingglass", description: Text("Ajuste a busca ou limpe os filtros."))
                     } else {
@@ -646,20 +652,6 @@ private struct SecondaryAction: View {
         }
         .buttonStyle(.bordered)
         .tint(Theme.forest)
-    }
-}
-
-private struct CatalogStatusView: View {
-    let state: CatalogLoadState
-    var body: some View {
-        switch state {
-        case .loading:
-            ProgressView("Carregando catálogo…").frame(maxWidth: .infinity).padding(.vertical, 40)
-        case .loaded:
-            EmptyView()
-        case .failed(let message):
-            ContentUnavailableView("Catálogo indisponível", systemImage: "exclamationmark.triangle", description: Text(message))
-        }
     }
 }
 

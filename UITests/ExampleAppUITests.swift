@@ -7,7 +7,7 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Qual é a sua fome hoje?"].waitForExistence(timeout: 10))
         capture(app, named: "restaurantes-home")
 
-        let firstCard = app.buttons.matching(identifier: "hero-0").firstMatch
+        let firstCard = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'hero-'")).firstMatch
         if firstCard.waitForExistence(timeout: 5) {
             firstCard.tap()
             capture(app, named: "restaurantes-detalhe")

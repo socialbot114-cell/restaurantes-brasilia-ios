@@ -377,6 +377,42 @@ def active_submission(app_id: str, version_id: str) -> dict | None:
     return None
 
 
+def resolve_previous_review_issues(app_id: str, version_id: str) -> None:
+    submissions = list_pages(f"/apps/{app_id}/reviewSubmissions?limit=200&include=appStoreVersionForReview,items")
+    matching = [
+        submission
+        for submission in submissions
+        if (submission.get("relationships", {}).get("appStoreVersionForReview", {}).get("data") or {}).get("id") == version_id
+        and submission.get("attributes", {}).get("state") == "UNRESOLVED_ISSUES"
+    ]
+    for submission in matching:
+        items = list_pages(f"/reviewSubmissions/{submission['id']}/items?limit=200&include=appStoreVersion")
+        rejected_items = [item for item in items if item.get("attributes", {}).get("state") == "REJECTED"]
+        if not rejected_items:
+            continue
+        for item in rejected_items:
+            item_version_id = (item.get("relationships", {}).get("appStoreVersion", {}).get("data") or {}).get("id")
+            if item_version_id and item_version_id != version_id:
+                continue
+            if not item_version_id and len(items) != 1:
+                raise RuntimeError(
+                    f"Review submission {submission['id']} has multiple rejected items without version links; "
+                    "refusing to resolve an ambiguous item"
+                )
+            api_request(
+                f"/reviewSubmissionItems/{item['id']}",
+                method="PATCH",
+                body={
+                    "data": {
+                        "type": "reviewSubmissionItems",
+                        "id": item["id"],
+                        "attributes": {"resolved": True},
+                    }
+                },
+            )
+            print(f"Marked the prior rejected App Review item {item['id']} as resolved.")
+
+
 def review_submission_summary(app_id: str) -> list[str]:
     response = api_request(f"/apps/{app_id}/reviewSubmissions?limit=200&include=items,appStoreVersionForReview")
     included_items = {
@@ -536,6 +572,7 @@ def main() -> None:
     if operation != "submit":
         raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
 
+    resolve_previous_review_issues(app["id"], version["id"])
     ensure_release_notes(version["id"])
     uploaded_count = upload_store_screenshots(version["id"])
     print(f"Uploaded {uploaded_count} App Store screenshots for pt-BR.")

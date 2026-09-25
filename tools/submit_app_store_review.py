@@ -22,6 +22,10 @@ BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
 MARKETING_VERSION = "1.0"
 BUILD_NUMBER = "3"
+RELEASE_NOTES_PT_BR = (
+    "Crie e organize roteiros de restaurantes, registre visitas com avaliações e anotações pessoais "
+    "e consulte locais no mapa integrado. Seus roteiros e seu diário ficam salvos no aparelho."
+)
 IPHONE_SCREENSHOT_SIZE = (1290, 2796)
 IPAD_SCREENSHOT_SIZE = (1668, 2388)
 APP_STORE_SCREENSHOTS = (
@@ -268,6 +272,28 @@ def upload_store_screenshots(app_store_version_id: str) -> int:
     return iphone_count + ipad_count
 
 
+def ensure_release_notes(app_store_version_id: str) -> None:
+    localizations = list_pages(f"/appStoreVersions/{app_store_version_id}/appStoreVersionLocalizations?limit=200")
+    locale = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
+    if not locale:
+        raise RuntimeError(f"No pt-BR App Store localization exists for version {MARKETING_VERSION}")
+    if locale.get("attributes", {}).get("whatsNew"):
+        print("App Store release notes are already present for pt-BR.")
+        return
+    api_request(
+        f"/appStoreVersionLocalizations/{locale['id']}",
+        method="PATCH",
+        body={
+            "data": {
+                "type": "appStoreVersionLocalizations",
+                "id": locale["id"],
+                "attributes": {"whatsNew": RELEASE_NOTES_PT_BR},
+            }
+        },
+    )
+    print("Added Portuguese release notes describing the new native routes and visit diary.")
+
+
 def inspect_screenshot_sets(app_store_version_id: str) -> None:
     localizations = list_pages(f"/appStoreVersions/{app_store_version_id}/appStoreVersionLocalizations?limit=200")
     locale = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
@@ -510,6 +536,7 @@ def main() -> None:
     if operation != "submit":
         raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
 
+    ensure_release_notes(version["id"])
     uploaded_count = upload_store_screenshots(version["id"])
     print(f"Uploaded {uploaded_count} App Store screenshots for pt-BR.")
 

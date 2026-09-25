@@ -456,40 +456,42 @@ private struct DiningRouteDetailView: View {
     var body: some View {
         Group {
             if let route {
-                if route.restaurantIDs.isEmpty {
-                    ContentUnavailableView("Roteiro vazio", systemImage: "fork.knife", description: Text("Adicione restaurantes e organize a ordem da sua próxima saída."))
-                } else {
-                    List {
-                        Section {
-                            ForEach(route.restaurantIDs, id: \.self) { restaurantID in
-                                if let restaurant = catalog.restaurants.first(where: { $0.id == restaurantID }) {
-                                    HStack(spacing: 10) {
-                                        NavigationLink {
-                                            RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining)
-                                        } label: {
-                                            RestaurantCard(restaurant: restaurant, showFavorite: false)
+                Group {
+                    if route.restaurantIDs.isEmpty {
+                        ContentUnavailableView("Roteiro vazio", systemImage: "fork.knife", description: Text("Adicione restaurantes e organize a ordem da sua próxima saída."))
+                    } else {
+                        List {
+                            Section {
+                                ForEach(route.restaurantIDs, id: \.self) { restaurantID in
+                                    if let restaurant = catalog.restaurants.first(where: { $0.id == restaurantID }) {
+                                        HStack(spacing: 10) {
+                                            NavigationLink {
+                                                RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining)
+                                            } label: {
+                                                RestaurantCard(restaurant: restaurant, showFavorite: false)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .accessibilityIdentifier("route-restaurant-\(restaurant.id)")
+                                            Button(role: .destructive) {
+                                                dining.removeRestaurant(restaurant.id, from: route.id)
+                                            } label: {
+                                                Image(systemName: "minus.circle.fill")
+                                                    .foregroundStyle(Theme.terracotta)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .accessibilityLabel("Remover \(restaurant.name) do roteiro")
                                         }
-                                        .buttonStyle(.plain)
-                                        .accessibilityIdentifier("route-restaurant-\(restaurant.id)")
-                                        Button(role: .destructive) {
-                                            dining.removeRestaurant(restaurant.id, from: route.id)
-                                        } label: {
-                                            Image(systemName: "minus.circle.fill")
-                                                .foregroundStyle(Theme.terracotta)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .accessibilityLabel("Remover \(restaurant.name) do roteiro")
+                                        .listRowSeparator(.hidden)
                                     }
-                                    .listRowSeparator(.hidden)
                                 }
+                                .onMove { dining.moveRestaurants(in: route.id, from: $0, to: $1) }
+                            } header: {
+                                Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es") · arraste para reordenar")
                             }
-                            .onMove { dining.moveRestaurants(in: route.id, from: $0, to: $1) }
-                        } header: {
-                            Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es") · arraste para reordenar")
                         }
+                        .listStyle(.insetGrouped)
+                        .id(route.restaurantIDs)
                     }
-                    .listStyle(.insetGrouped)
-                    .id(route.restaurantIDs)
                 }
                 .navigationTitle(route.name)
                 .navigationBarTitleDisplayMode(.inline)

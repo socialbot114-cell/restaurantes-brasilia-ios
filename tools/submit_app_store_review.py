@@ -60,7 +60,14 @@ def api_request(path: str, method: str = "GET", body: dict | None = None) -> dic
     except HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         try:
-            messages = [item.get("detail", "") for item in json.loads(detail).get("errors", [])]
+            errors = json.loads(detail).get("errors", [])
+            messages = []
+            for item in errors:
+                parts = [item.get("code"), item.get("title"), item.get("detail")]
+                message = ": ".join(str(part) for part in parts if part)
+                if item.get("meta"):
+                    message += f" (meta: {json.dumps(item['meta'], sort_keys=True)})"
+                messages.append(message)
         except (json.JSONDecodeError, AttributeError):
             messages = []
         reason = "; ".join(message for message in messages if message) or "Apple returned an API error"
@@ -154,6 +161,32 @@ def active_submission(app_id: str, version_id: str) -> dict | None:
     return None
 
 
+def review_submission_summary(app_id: str) -> list[str]:
+    response = api_request(f"/apps/{app_id}/reviewSubmissions?limit=200&include=items,appStoreVersionForReview")
+    included_items = {
+        item.get("id"): item
+        for item in response.get("included", [])
+        if item.get("type") == "reviewSubmissionItems"
+    }
+    summary = []
+    for item in response.get("data", []):
+        attributes = item.get("attributes", {})
+        relationships = item.get("relationships", {})
+        version_id = (relationships.get("appStoreVersionForReview", {}).get("data") or {}).get("id", "")
+        item_ids = (relationships.get("items", {}).get("data") or [])
+        version_ids = []
+        for review_item_id in item_ids:
+            review_item = included_items.get(review_item_id.get("id"), {})
+            related_version = (review_item.get("relationships", {}).get("appStoreVersion", {}).get("data") or {}).get("id")
+            if related_version:
+                version_ids.append(related_version)
+        summary.append(
+            f"{item.get('id')} state={attributes.get('state', 'UNKNOWN')} "
+            f"appStoreVersionForReview={version_id or 'none'} items={','.join(version_ids) or 'none'}"
+        )
+    return summary
+
+
 def submit_for_review(app_id: str, version_id: str) -> dict:
     existing = active_submission(app_id, version_id)
     if existing:
@@ -223,6 +256,31 @@ def main() -> None:
 
     build = find_valid_build(app["id"])
     current_build = api_request(f"/appStoreVersions/{version['id']}/build").get("data")
+    print(f"App Store version {MARKETING_VERSION}: state={version_state}, id={version['id']}")
+    print(f"Current attached build: {current_build.get('id', 'none') if current_build else 'none'}")
+    print(f"Target build: {build['id']} (build {BUILD_NUMBER}, processing={build.get('attributes', {}).get('processingState')})")
+    submissions = review_submission_summary(app["id"])
+    if submissions:
+        print("Existing App Review submissions:")
+        for submission in submissions:
+            print(f"- {submission}")
+    else:
+        print("No existing App Review submissions found.")
+
+    operation = os.environ.get("ASC_ACTION", "submit").strip().lower()
+    if operation == "inspect":
+        summary = (
+            f"### App Store Connect release state inspected\n"
+            f"- App: `{BUNDLE_ID}`\n"
+            f"- Version: `{MARKETING_VERSION}` (`{version_state}`)\n"
+            f"- Target build: `{MARKETING_VERSION} ({BUILD_NUMBER})` (`{build.get('attributes', {}).get('processingState')}`)\n"
+            f"- Current attached build: `{current_build.get('id', 'none') if current_build else 'none'}`\n"
+        )
+        write_summary(summary)
+        return
+    if operation != "submit":
+        raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
+
     if not current_build or current_build.get("id") != build["id"]:
         api_request(
             f"/appStoreVersions/{version['id']}/relationships/build",

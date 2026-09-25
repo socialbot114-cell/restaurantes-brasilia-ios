@@ -2,6 +2,15 @@ name: Restaurantes Brasília submit 1.0 for App Review
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: Inspect App Store Connect state or submit version 1.0 for review
+        required: true
+        type: choice
+        default: inspect
+        options:
+          - inspect
+          - submit
 
 permissions:
   contents: read
@@ -24,3 +33,4 @@ jobs:
           APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APP_STORE_PROCESSING_TIMEOUT_MINUTES: "60"
+          ASC_ACTION: ${{ inputs.action }}

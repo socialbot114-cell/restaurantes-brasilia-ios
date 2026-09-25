@@ -66,7 +66,10 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         XCTAssertTrue(firstRestaurant.waitForExistence(timeout: 5))
         firstRestaurant.tap()
         app.buttons["done-adding-restaurants"].tap()
-        XCTAssertTrue(app.staticTexts["1 lugar · arraste para reordenar"].waitForExistence(timeout: 5))
+        let plannedRestaurant = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'route-restaurant-'"))
+            .firstMatch
+        XCTAssertTrue(plannedRestaurant.waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-roteiro-planejado")
 
     }

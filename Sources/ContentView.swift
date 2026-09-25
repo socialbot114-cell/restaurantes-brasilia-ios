@@ -456,11 +456,11 @@ private struct DiningRouteDetailView: View {
     var body: some View {
         Group {
             if let route {
-                List {
-                    Section {
-                        if route.restaurantIDs.isEmpty {
-                            ContentUnavailableView("Roteiro vazio", systemImage: "fork.knife", description: Text("Adicione restaurantes e organize a ordem da sua próxima saída."))
-                        } else {
+                if route.restaurantIDs.isEmpty {
+                    ContentUnavailableView("Roteiro vazio", systemImage: "fork.knife", description: Text("Adicione restaurantes e organize a ordem da sua próxima saída."))
+                } else {
+                    List {
+                        Section {
                             ForEach(route.restaurantIDs, id: \.self) { restaurantID in
                                 if let restaurant = catalog.restaurants.first(where: { $0.id == restaurantID }) {
                                     HStack(spacing: 10) {
@@ -484,12 +484,13 @@ private struct DiningRouteDetailView: View {
                                 }
                             }
                             .onMove { dining.moveRestaurants(in: route.id, from: $0, to: $1) }
+                        } header: {
+                            Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es") · arraste para reordenar")
                         }
-                    } header: {
-                        Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es") · arraste para reordenar")
                     }
+                    .listStyle(.insetGrouped)
+                    .id(route.restaurantIDs)
                 }
-                .listStyle(.insetGrouped)
                 .navigationTitle(route.name)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {

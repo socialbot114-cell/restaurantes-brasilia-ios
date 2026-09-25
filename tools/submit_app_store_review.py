@@ -22,7 +22,7 @@ BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
 MARKETING_VERSION = "1.0"
 BUILD_NUMBER = "3"
-IPHONE_SCREENSHOT_SIZE = (1290, 2796)
+IPHONE_SCREENSHOT_SIZE = (1242, 2688)
 IPAD_SCREENSHOT_SIZE = (1668, 2388)
 APP_STORE_SCREENSHOTS = (
     "restaurantes-home",
@@ -269,7 +269,7 @@ def upload_store_screenshots(app_store_version_id: str) -> int:
     iphone_dir = Path(os.environ["ASC_SCREENSHOT_IPHONE_DIR"])
     ipad_dir = Path(os.environ["ASC_SCREENSHOT_IPAD_DIR"])
     iphone_count = upload_screenshot_set(
-        locale["id"], iphone_dir, "app-store-iphone-67", "APP_IPHONE_67", IPHONE_SCREENSHOT_SIZE
+        locale["id"], iphone_dir, "app-store-iphone-65", "APP_IPHONE_65", IPHONE_SCREENSHOT_SIZE
     )
     ipad_count = upload_screenshot_set(
         locale["id"], ipad_dir, "app-store-ipad-11", "APP_IPAD_PRO_3GEN_11", IPAD_SCREENSHOT_SIZE

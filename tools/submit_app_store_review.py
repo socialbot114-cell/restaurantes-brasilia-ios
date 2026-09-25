@@ -364,16 +364,49 @@ def review_submission_summary(app_id: str) -> list[str]:
         relationships = item.get("relationships", {})
         version_id = (relationships.get("appStoreVersionForReview", {}).get("data") or {}).get("id", "")
         item_ids = (relationships.get("items", {}).get("data") or [])
-        version_ids = []
+        review_items = [included_items.get(review_item_id.get("id"), {}) for review_item_id in item_ids]
+        if not review_items:
+            item_response = api_request(f"/reviewSubmissions/{item['id']}/items?limit=200&include=appStoreVersion")
+            review_items = item_response.get("data", [])
+        item_details = []
         for review_item_id in item_ids:
             review_item = included_items.get(review_item_id.get("id"), {})
+            item_details.append(review_item)
+        if not item_details:
+            item_details = review_items
+        item_summary = []
+        for review_item in item_details:
             related_version = (review_item.get("relationships", {}).get("appStoreVersion", {}).get("data") or {}).get("id")
-            if related_version:
-                version_ids.append(related_version)
+            item_summary.append(
+                f"{review_item.get('id', '?')} state={review_item.get('attributes', {}).get('state', 'UNKNOWN')} "
+                f"version={related_version or 'none'}"
+            )
         summary.append(
             f"{item.get('id')} state={attributes.get('state', 'UNKNOWN')} "
-            f"appStoreVersionForReview={version_id or 'none'} items={','.join(version_ids) or 'none'}"
+            f"appStoreVersionForReview={version_id or 'none'} items={';'.join(item_summary) or 'none'}"
         )
+    return summary
+
+
+def review_readiness_summary(version_id: str) -> list[str]:
+    summary = []
+    try:
+        detail = api_request(f"/appStoreVersions/{version_id}/appStoreReviewDetail").get("data", {}).get("attributes", {})
+        required_fields = ("contactFirstName", "contactLastName", "contactEmail", "contactPhone", "notes")
+        missing = [field for field in required_fields if not detail.get(field)]
+        summary.append(f"App Review contact/notes missing fields: {','.join(missing) or 'none'}")
+    except RuntimeError as error:
+        summary.append(f"App Review detail lookup: {error}")
+
+    localizations = list_pages(f"/appStoreVersions/{version_id}/appStoreVersionLocalizations?limit=200")
+    pt_br = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
+    if not pt_br:
+        summary.append("pt-BR App Store version localization is missing")
+    else:
+        attributes = pt_br.get("attributes", {})
+        required_fields = ("description", "keywords", "supportUrl", "whatsNew")
+        missing = [field for field in required_fields if not attributes.get(field)]
+        summary.append(f"pt-BR App Store localization missing fields: {','.join(missing) or 'none'}")
     return summary
 
 
@@ -459,6 +492,8 @@ def main() -> None:
             print(f"- {submission}")
     else:
         print("No existing App Review submissions found.")
+    for readiness in review_readiness_summary(version["id"]):
+        print(readiness)
 
     operation = os.environ.get("ASC_ACTION", "submit").strip().lower()
     if operation == "inspect":

@@ -17,7 +17,7 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         let search = app.textFields["restaurant-search-field"].firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.tap()
-        search.typeText("Verona")
+        search.typeText("Verona\n")
         let verona = app.descendants(matching: .any)
             .matching(identifier: "row-duogourmet-verona-ristorante")
             .firstMatch
@@ -31,7 +31,6 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Meu diário"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-diario")
         app.navigationBars.buttons.firstMatch.tap()
-        app.staticTexts["BRASÍLIA À MESA"].tap()
 
         tapTab(app, "Explorar")
         XCTAssertTrue(app.navigationBars["Explorar"].waitForExistence(timeout: 5))

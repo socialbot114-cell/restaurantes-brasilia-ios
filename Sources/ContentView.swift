@@ -1111,6 +1111,7 @@ private struct FavoriteButton: View {
 private struct SearchBar: View {
     @Binding var text: String
     let placeholder: String
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -1118,6 +1119,9 @@ private struct SearchBar: View {
             TextField(placeholder, text: $text)
                 .textInputAutocapitalization(.never)
                 .accessibilityIdentifier("restaurant-search-field")
+                .focused($isFocused)
+                .submitLabel(.search)
+                .onSubmit { isFocused = false }
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                     .buttonStyle(.plain)

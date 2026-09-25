@@ -3417,7 +3417,10 @@
     "source": "duogourmet",
     "source_url": "https://www.duogourmet.com.br/restaurantes/brasilia/verona-ristorante",
     "last_verified": "2026-09-15",
-    "data_status": "verified"
+    "data_status": "verified",
+    "photo_asset": "VeronaRistorante",
+    "photo_source_url": "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0a/93/30/69/fachada-interna.jpg?w=900&h=700&s=1",
+    "photo_rights_status": "user-confirmed-authorized"
   },
   {
     "id": "duogourmet-vila-tarego-presencialretirada",

@@ -19,6 +19,35 @@ final class RestaurantDomainTests: XCTestCase {
         XCTAssertNil(Restaurant.normalizeWebsiteURL("not a website"))
     }
 
+    func testPhotoMetadataRoundTripsAndLegacyRecordsStillDecode() throws {
+        let withPhoto = Restaurant(
+            id: "verona",
+            name: "Verona Ristorante",
+            category: "Italiana",
+            neighborhood: "Asa Sul",
+            address: nil,
+            phone: nil,
+            website: nil,
+            rating: nil,
+            reviewCount: nil,
+            source: "test",
+            sourceURL: nil,
+            lastVerified: "2026-01-01",
+            dataStatus: "verified",
+            photoAsset: "VeronaRistorante",
+            photoSourceURL: "https://example.com/photo.jpg",
+            photoRightsStatus: "user-confirmed-authorized"
+        )
+        let encoded = try JSONEncoder().encode([withPhoto])
+        let decoded = try JSONDecoder().decode([Restaurant].self, from: encoded)
+        XCTAssertEqual(decoded.first?.photoAsset, "VeronaRistorante")
+        XCTAssertEqual(decoded.first?.photoRightsStatus, "user-confirmed-authorized")
+
+        let legacyJSON = Data(#"[{"id":"legacy","name":"Lugar","source":"test","last_verified":"","data_status":"verified"}]"#.utf8)
+        let legacy = try XCTUnwrap(JSONDecoder().decode([Restaurant].self, from: legacyJSON).first)
+        XCTAssertNil(legacy.photoAsset)
+    }
+
     func testCatalogFiltersBySearchAndSelectors() {
         let catalog = RestaurantCatalog(data: catalogData([
             restaurant(id: "one", name: "Casa do Pequi", category: "Brasileira", neighborhood: "Asa Sul", address: "CLS 10"),

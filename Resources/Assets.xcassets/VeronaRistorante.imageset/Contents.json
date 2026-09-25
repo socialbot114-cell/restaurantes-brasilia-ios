@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "verona-ristorante.jpg",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

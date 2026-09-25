@@ -24,6 +24,40 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         }
         tapTab(app, "Salvos")
         capture(app, named: "restaurantes-favoritos")
+
+        tapTab(app, "Roteiros")
+        XCTAssertTrue(app.navigationBars["Roteiros"].waitForExistence(timeout: 5))
+        capture(app, named: "restaurantes-roteiros-vazio")
+
+        let createRoute = app.buttons["create-route-empty"].waitForExistence(timeout: 2)
+            ? app.buttons["create-route-empty"]
+            : app.buttons["create-route"]
+        XCTAssertTrue(createRoute.waitForExistence(timeout: 5))
+        createRoute.tap()
+        let routeName = app.textFields["route-name-field"]
+        XCTAssertTrue(routeName.waitForExistence(timeout: 5))
+        routeName.tap()
+        routeName.typeText("Sabores do DF")
+        app.buttons["save-route"].tap()
+
+        let routeLink = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'route-'" )).firstMatch
+        XCTAssertTrue(routeLink.waitForExistence(timeout: 5))
+        routeLink.tap()
+        app.buttons["add-restaurants"].tap()
+        let firstRestaurant = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'add-restaurant-'" )).firstMatch
+        XCTAssertTrue(firstRestaurant.waitForExistence(timeout: 5))
+        firstRestaurant.tap()
+        app.buttons["done-adding-restaurants"].tap()
+        capture(app, named: "restaurantes-roteiro-planejado")
+
+        let plannedRestaurant = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'route-restaurant-'" )).firstMatch
+        XCTAssertTrue(plannedRestaurant.waitForExistence(timeout: 5))
+        plannedRestaurant.tap()
+        app.buttons["record-visit"].tap()
+        XCTAssertTrue(app.buttons["save-visit"].waitForExistence(timeout: 5))
+        app.buttons["save-visit"].tap()
+        XCTAssertTrue(app.staticTexts["Meu diário"].waitForExistence(timeout: 5))
+        capture(app, named: "restaurantes-diario")
     }
 
     private func tapTab(_ app: XCUIApplication, _ name: String) {

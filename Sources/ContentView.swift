@@ -533,6 +533,7 @@ private struct AddRestaurantsSheet: View {
     let routeID: String
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
+    @State private var selectedRestaurantIDs = Set<String>()
 
     private var restaurants: [Restaurant] {
         RestaurantCatalog.filter(catalog.restaurants, query: query)
@@ -542,7 +543,7 @@ private struct AddRestaurantsSheet: View {
         NavigationStack {
             List(restaurants) { restaurant in
                 Button {
-                    dining.addRestaurant(restaurant.id, to: routeID)
+                    selectedRestaurantIDs.insert(restaurant.id)
                 } label: {
                     HStack(spacing: 12) {
                         RestaurantArtwork(restaurant: restaurant, size: 48)
@@ -552,12 +553,13 @@ private struct AddRestaurantsSheet: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Image(systemName: dining.contains(restaurant.id, in: routeID) ? "checkmark.circle.fill" : "plus.circle")
-                            .foregroundStyle(dining.contains(restaurant.id, in: routeID) ? Theme.forest : Theme.terracotta)
+                        Image(systemName: isSelected(restaurant.id) ? "checkmark.circle.fill" : "plus.circle")
+                            .foregroundStyle(isSelected(restaurant.id) ? Theme.forest : Theme.terracotta)
                     }
                 }
                 .buttonStyle(.plain)
-                .disabled(dining.contains(restaurant.id, in: routeID))
+                .disabled(isSelected(restaurant.id))
+                .accessibilityValue(isSelected(restaurant.id) ? "Selecionado" : "Adicionar")
                 .accessibilityIdentifier("add-restaurant-\(restaurant.id)")
             }
             .listStyle(.plain)
@@ -566,11 +568,20 @@ private struct AddRestaurantsSheet: View {
             .searchable(text: $query, prompt: "Buscar restaurante")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Concluir") { dismiss() }
+                    Button("Concluir") {
+                        for restaurantID in selectedRestaurantIDs {
+                            dining.addRestaurant(restaurantID, to: routeID)
+                        }
+                        dismiss()
+                    }
                         .accessibilityIdentifier("done-adding-restaurants")
                 }
             }
         }
+    }
+
+    private func isSelected(_ restaurantID: String) -> Bool {
+        dining.contains(restaurantID, in: routeID) || selectedRestaurantIDs.contains(restaurantID)
     }
 }
 

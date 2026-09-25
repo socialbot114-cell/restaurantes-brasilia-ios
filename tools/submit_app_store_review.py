@@ -521,7 +521,15 @@ def main() -> None:
     app = app_record()
     version = app_store_version(app["id"])
     version_state = version.get("attributes", {}).get("appStoreState", "UNKNOWN")
-    if version_state not in {"REJECTED", "PREPARE_FOR_SUBMISSION", "READY_FOR_REVIEW", "DEVELOPER_REJECTED"}:
+    operation = os.environ.get("ASC_ACTION", "submit").strip().lower()
+    if operation not in {"inspect", "submit"}:
+        raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
+    if operation == "submit" and version_state not in {
+        "REJECTED",
+        "PREPARE_FOR_SUBMISSION",
+        "READY_FOR_REVIEW",
+        "DEVELOPER_REJECTED",
+    }:
         raise RuntimeError(
             f"App Store version {MARKETING_VERSION} is in state {version_state}; "
             "refusing to modify or create another review submission"
@@ -542,7 +550,6 @@ def main() -> None:
     for readiness in review_readiness_summary(version["id"]):
         print(readiness)
 
-    operation = os.environ.get("ASC_ACTION", "submit").strip().lower()
     if operation == "inspect":
         inspect_screenshot_sets(version["id"])
         summary = (
@@ -554,8 +561,6 @@ def main() -> None:
         )
         write_summary(summary)
         return
-    if operation != "submit":
-        raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
 
     resolve_previous_review_issues(app["id"], version["id"])
     uploaded_count = upload_store_screenshots(version["id"])

@@ -341,7 +341,7 @@ def find_valid_build(app_id: str) -> dict:
 
 
 def active_submission(app_id: str, version_id: str) -> dict | None:
-    submissions = list_pages(f"/apps/{app_id}/reviewSubmissions?limit=200")
+    submissions = list_pages(f"/apps/{app_id}/reviewSubmissions?limit=200&include=appStoreVersionForReview,items")
     for submission in submissions:
         attributes = submission.get("attributes", {})
         relationships = submission.get("relationships", {})

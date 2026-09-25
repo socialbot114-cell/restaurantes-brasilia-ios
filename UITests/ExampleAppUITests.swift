@@ -31,6 +31,7 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Meu diário"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-diario")
         app.navigationBars.buttons.firstMatch.tap()
+        app.staticTexts["BRASÍLIA À MESA"].tap()
 
         tapTab(app, "Explorar")
         XCTAssertTrue(app.navigationBars["Explorar"].waitForExistence(timeout: 5))

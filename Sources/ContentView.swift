@@ -542,25 +542,27 @@ private struct AddRestaurantsSheet: View {
     var body: some View {
         NavigationStack {
             List(restaurants) { restaurant in
-                Button {
-                    selectedRestaurantIDs.insert(restaurant.id)
-                } label: {
-                    HStack(spacing: 12) {
-                        RestaurantArtwork(restaurant: restaurant, size: 48)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(restaurant.name).font(.headline).foregroundStyle(.primary)
-                            Text("\(restaurant.displayCategory) · \(restaurant.displayNeighborhood)")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
+                HStack(spacing: 12) {
+                    RestaurantArtwork(restaurant: restaurant, size: 48)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(restaurant.name).font(.headline).foregroundStyle(.primary)
+                        Text("\(restaurant.displayCategory) · \(restaurant.displayNeighborhood)")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        selectedRestaurantIDs.insert(restaurant.id)
+                    } label: {
                         Image(systemName: isSelected(restaurant.id) ? "checkmark.circle.fill" : "plus.circle")
                             .foregroundStyle(isSelected(restaurant.id) ? Theme.forest : Theme.terracotta)
+                            .frame(width: 44, height: 56)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.borderless)
+                    .disabled(isSelected(restaurant.id))
+                    .accessibilityValue(isSelected(restaurant.id) ? "Selecionado" : "Adicionar")
+                    .accessibilityIdentifier("add-restaurant-\(restaurant.id)")
                 }
-                .buttonStyle(.plain)
-                .disabled(isSelected(restaurant.id))
-                .accessibilityValue(isSelected(restaurant.id) ? "Selecionado" : "Adicionar")
-                .accessibilityIdentifier("add-restaurant-\(restaurant.id)")
             }
             .listStyle(.plain)
             .navigationTitle("Adicionar lugares")

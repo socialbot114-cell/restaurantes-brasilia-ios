@@ -11,6 +11,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         device:
           - name: iPhone 17
@@ -36,13 +37,20 @@ jobs:
             -only-testing:RestaurantesBrasiliaUITests \
             CODE_SIGNING_ALLOWED=NO
       - name: Export PNG attachments
+        if: always()
         run: |
           set -euo pipefail
-          xcrun xcresulttool export attachments \
-            --path "$RUNNER_TEMP/restaurantes-${{ matrix.device.slug }}.xcresult" \
-            --output-path "$RUNNER_TEMP/restaurantes-screenshots-${{ matrix.device.slug }}"
+          result_bundle="$RUNNER_TEMP/restaurantes-${{ matrix.device.slug }}.xcresult"
+          output_path="$RUNNER_TEMP/restaurantes-screenshots-${{ matrix.device.slug }}"
+          mkdir -p "$output_path"
+          if [ -d "$result_bundle" ]; then
+            xcrun xcresulttool export attachments \
+              --path "$result_bundle" \
+              --output-path "$output_path"
+          fi
           find "$RUNNER_TEMP/restaurantes-screenshots-${{ matrix.device.slug }}" -type f -name '*.png' -print
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: restaurantes-brasilia-screenshots-${{ matrix.device.slug }}
           path: ${{ runner.temp }}/restaurantes-screenshots-${{ matrix.device.slug }}

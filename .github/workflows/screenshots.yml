@@ -15,8 +15,10 @@ jobs:
         device:
           - name: iPhone 17
             slug: iphone
+            os: "26.5"
           - name: iPad Air 11-inch (M3)
             slug: ipad-air-11-m3
+            os: "26.2"
     steps:
       - uses: actions/checkout@v4
       - name: Install XcodeGen
@@ -29,7 +31,7 @@ jobs:
           xcodebuild test \
             -project RestaurantesBrasilia.xcodeproj \
             -scheme RestaurantesBrasilia \
-            -destination 'platform=iOS Simulator,name=${{ matrix.device.name }},OS=26.5' \
+            -destination 'platform=iOS Simulator,name=${{ matrix.device.name }},OS=${{ matrix.device.os }}' \
             -resultBundlePath "$RUNNER_TEMP/restaurantes-${{ matrix.device.slug }}.xcresult" \
             -only-testing:RestaurantesBrasiliaUITests \
             CODE_SIGNING_ALLOWED=NO

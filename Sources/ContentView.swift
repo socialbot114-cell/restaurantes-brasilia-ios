@@ -454,72 +454,74 @@ private struct DiningRouteDetailView: View {
     private var route: DiningRoute? { dining.route(withID: routeID) }
 
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
             if let route {
-                Group {
-                    if route.restaurantIDs.isEmpty {
-                        ContentUnavailableView("Roteiro vazio", systemImage: "fork.knife", description: Text("Adicione restaurantes e organize a ordem da sua próxima saída."))
-                    } else {
-                        List {
-                            Section {
-                                ForEach(route.restaurantIDs, id: \.self) { restaurantID in
-                                    if let restaurant = catalog.restaurants.first(where: { $0.id == restaurantID }) {
-                                        HStack(spacing: 10) {
-                                            NavigationLink {
-                                                RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining)
-                                            } label: {
-                                                RestaurantCard(restaurant: restaurant, showFavorite: false)
-                                            }
-                                            .buttonStyle(.plain)
-                                            .accessibilityIdentifier("route-restaurant-\(restaurant.id)")
-                                            Button(role: .destructive) {
-                                                dining.removeRestaurant(restaurant.id, from: route.id)
-                                            } label: {
-                                                Image(systemName: "minus.circle.fill")
-                                                    .foregroundStyle(Theme.terracotta)
-                                            }
-                                            .buttonStyle(.plain)
-                                            .accessibilityLabel("Remover \(restaurant.name) do roteiro")
+                if route.restaurantIDs.isEmpty {
+                    ContentUnavailableView("Roteiro vazio", systemImage: "fork.knife", description: Text("Adicione restaurantes e organize a ordem da sua próxima saída."))
+                } else {
+                    List {
+                        Section {
+                            ForEach(route.restaurantIDs, id: \.self) { restaurantID in
+                                if let restaurant = catalog.restaurants.first(where: { $0.id == restaurantID }) {
+                                    HStack(spacing: 10) {
+                                        NavigationLink {
+                                            RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining)
+                                        } label: {
+                                            RestaurantCard(restaurant: restaurant, showFavorite: false)
                                         }
-                                        .listRowSeparator(.hidden)
+                                        .buttonStyle(.plain)
+                                        .accessibilityIdentifier("route-restaurant-\(restaurant.id)")
+                                        Button(role: .destructive) {
+                                            dining.removeRestaurant(restaurant.id, from: route.id)
+                                        } label: {
+                                            Image(systemName: "minus.circle.fill")
+                                                .foregroundStyle(Theme.terracotta)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .accessibilityLabel("Remover \(restaurant.name) do roteiro")
                                     }
+                                    .listRowSeparator(.hidden)
                                 }
-                                .onMove { dining.moveRestaurants(in: route.id, from: $0, to: $1) }
-                            } header: {
-                                Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es") · arraste para reordenar")
                             }
-                        }
-                        .listStyle(.insetGrouped)
-                        .id(route.restaurantIDs)
-                    }
-                }
-                .navigationTitle(route.name)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) { EditButton() }
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button { isAddingRestaurants = true } label: {
-                            Label("Adicionar lugares", systemImage: "plus")
-                        }
-                        .accessibilityIdentifier("add-restaurants")
-                        Menu {
-                            Button("Excluir roteiro", role: .destructive) { isConfirmingDelete = true }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
+                            .onMove { dining.moveRestaurants(in: route.id, from: $0, to: $1) }
+                        } header: {
+                            Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es") · arraste para reordenar")
                         }
                     }
-                }
-                .sheet(isPresented: $isAddingRestaurants) {
-                    AddRestaurantsSheet(catalog: catalog, dining: dining, routeID: route.id)
-                }
-                .confirmationDialog("Excluir este roteiro?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
-                    Button("Excluir roteiro", role: .destructive) {
-                        dining.deleteRoute(route.id)
-                        dismiss()
-                    }
+                    .listStyle(.insetGrouped)
+                    .id(route.restaurantIDs)
                 }
             } else {
                 ContentUnavailableView("Roteiro não encontrado", systemImage: "map")
+            }
+        }
+        .navigationTitle(route?.name ?? "Roteiro")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) { EditButton() }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button { isAddingRestaurants = true } label: {
+                    Label("Adicionar lugares", systemImage: "plus")
+                }
+                .accessibilityIdentifier("add-restaurants")
+                Menu {
+                    Button("Excluir roteiro", role: .destructive) { isConfirmingDelete = true }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $isAddingRestaurants) {
+            if let route {
+                AddRestaurantsSheet(catalog: catalog, dining: dining, routeID: route.id)
+            }
+        }
+        .confirmationDialog("Excluir este roteiro?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
+            Button("Excluir roteiro", role: .destructive) {
+                if let route {
+                    dining.deleteRoute(route.id)
+                    dismiss()
+                }
             }
         }
     }

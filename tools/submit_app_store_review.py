@@ -151,7 +151,7 @@ def prepare_screenshots(artifact_dir: Path, output_name: str, size: tuple[int, i
     return prepared
 
 
-def screenshot_set_for(localization_id: str, display_type: str) -> str:
+def screenshot_set_for(localization_id: str, display_type: str) -> tuple[str, bool]:
     sets = list_pages(f"/appStoreVersionLocalizations/{localization_id}/appScreenshotSets?limit=200")
     existing = [
         screenshot_set
@@ -159,6 +159,13 @@ def screenshot_set_for(localization_id: str, display_type: str) -> str:
         if screenshot_set.get("attributes", {}).get("screenshotDisplayType") == display_type
     ]
     for screenshot_set in existing:
+        screenshots = list_pages(f"/appScreenshotSets/{screenshot_set['id']}/appScreenshots?limit=200")
+        if len(screenshots) >= len(APP_STORE_SCREENSHOTS) and all(
+            item.get("attributes", {}).get("assetDeliveryState", {}).get("state") == "COMPLETE"
+            for item in screenshots[: len(APP_STORE_SCREENSHOTS)]
+        ):
+            print(f"Reusing complete App Store screenshot set {display_type}.")
+            return screenshot_set["id"], True
         api_request(f"/appScreenshotSets/{screenshot_set['id']}", method="DELETE")
 
     response = api_request(
@@ -176,7 +183,7 @@ def screenshot_set_for(localization_id: str, display_type: str) -> str:
             }
         },
     )
-    return response["data"]["id"]
+    return response["data"]["id"], False
 
 
 def upload_screenshot(screenshot_set_id: str, path: Path) -> str:
@@ -245,7 +252,9 @@ def upload_screenshot_set(
     size: tuple[int, int],
 ) -> int:
     screenshots = prepare_screenshots(artifact_dir, output_name, size)
-    set_id = screenshot_set_for(localization_id, display_type)
+    set_id, already_complete = screenshot_set_for(localization_id, display_type)
+    if already_complete:
+        return len(APP_STORE_SCREENSHOTS)
     uploaded = 0
     for screenshot in screenshots:
         upload_screenshot(set_id, screenshot)
@@ -581,7 +590,7 @@ def main() -> None:
     app = app_record()
     version = app_store_version(app["id"])
     version_state = version.get("attributes", {}).get("appStoreState", "UNKNOWN")
-    if version_state not in {"REJECTED", "PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED"}:
+    if version_state not in {"REJECTED", "PREPARE_FOR_SUBMISSION", "READY_FOR_REVIEW", "DEVELOPER_REJECTED"}:
         raise RuntimeError(
             f"App Store version {MARKETING_VERSION} is in state {version_state}; "
             "refusing to modify or create another review submission"

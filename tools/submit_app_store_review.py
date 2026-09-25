@@ -422,44 +422,6 @@ def resolve_previous_review_issues(app_id: str, version_id: str) -> None:
             print(f"Marked the prior rejected App Review item {item['id']} as resolved.")
 
 
-def cancel_stale_review_submissions(app_id: str, version_id: str) -> None:
-    submissions = list_pages(f"/apps/{app_id}/reviewSubmissions?limit=200&include=appStoreVersionForReview,items")
-    for submission in submissions:
-        attributes = submission.get("attributes", {})
-        state = attributes.get("state")
-        relationships = submission.get("relationships", {})
-        related_version = (relationships.get("appStoreVersionForReview", {}).get("data") or {}).get("id")
-        linked_items = relationships.get("items", {}).get("data") or []
-        has_items = bool(linked_items)
-        if state == "READY_FOR_REVIEW" and not related_version and not has_items:
-            has_items = bool(list_pages(f"/reviewSubmissions/{submission['id']}/items?limit=200"))
-        is_target_submission = related_version == version_id
-        is_empty_draft = state == "READY_FOR_REVIEW" and not related_version and not has_items
-        if is_target_submission or not is_empty_draft:
-            continue
-        result = api_request(
-            f"/reviewSubmissions/{submission['id']}",
-            method="PATCH",
-            body={
-                "data": {
-                    "type": "reviewSubmissions",
-                    "id": submission["id"],
-                    "attributes": {"canceled": True},
-                }
-            },
-        )["data"]
-        deadline = time.monotonic() + 180
-        while result.get("attributes", {}).get("state") == "CANCELING" and time.monotonic() < deadline:
-            time.sleep(5)
-            result = api_request(f"/reviewSubmissions/{submission['id']}").get("data", {})
-        state_after_cancel = result.get("attributes", {}).get("state")
-        if state_after_cancel not in {"COMPLETE"} and not result.get("attributes", {}).get("canceled", False):
-            raise RuntimeError(
-                f"Could not clear stale App Review submission {submission['id']} (state={state_after_cancel})"
-            )
-        print(f"Canceled stale App Review submission {submission['id']} ({state}).")
-
-
 def review_submission_summary(app_id: str) -> list[str]:
     response = api_request(f"/apps/{app_id}/reviewSubmissions?limit=200&include=items,appStoreVersionForReview")
     included_items = {
@@ -620,7 +582,6 @@ def main() -> None:
         raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
 
     resolve_previous_review_issues(app["id"], version["id"])
-    cancel_stale_review_submissions(app["id"], version["id"])
     ensure_release_notes(version["id"])
     uploaded_count = upload_store_screenshots(version["id"])
     print(f"Uploaded {uploaded_count} App Store screenshots for pt-BR.")

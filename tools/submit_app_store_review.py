@@ -22,7 +22,7 @@ BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
 MARKETING_VERSION = "1.0"
 BUILD_NUMBER = "3"
-IPHONE_SCREENSHOT_SIZE = (1284, 2778)
+IPHONE_SCREENSHOT_SIZE = (1290, 2796)
 IPAD_SCREENSHOT_SIZE = (1668, 2388)
 APP_STORE_SCREENSHOTS = (
     "restaurantes-home",
@@ -97,6 +97,14 @@ def list_pages(path: str) -> list[dict]:
         items.extend(response.get("data", []))
         next_url = response.get("links", {}).get("next")
     return items
+
+
+def write_summary(text: str) -> None:
+    print(text)
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as summary_file:
+            summary_file.write(text + "\n")
 
 
 def app_record() -> dict:
@@ -487,11 +495,7 @@ def main() -> None:
         f"- Review submission ID: `{submission['id']}`\n"
         f"- Review state: `{submission.get('attributes', {}).get('state', 'submitted')}`\n"
     )
-    print(summary)
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary_path:
-        with open(summary_path, "a", encoding="utf-8") as summary_file:
-            summary_file.write(summary + "\n")
+    write_summary(summary)
 
 
 if __name__ == "__main__":

@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import sys
 import time
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import jwt
+from PIL import Image, ImageOps
 
 
 API_ROOT = "https://api.appstoreconnect.apple.com/v1"
@@ -19,6 +22,16 @@ BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
 MARKETING_VERSION = "1.0"
 BUILD_NUMBER = "3"
+IPHONE_SCREENSHOT_SIZE = (1284, 2778)
+IPAD_SCREENSHOT_SIZE = (1668, 2388)
+APP_STORE_SCREENSHOTS = (
+    "restaurantes-home",
+    "restaurantes-verona-busca",
+    "restaurantes-detalhe",
+    "restaurantes-explore",
+    "restaurantes-diario",
+    "restaurantes-roteiro-planejado",
+)
 ACTIVE_REVIEW_STATES = {"READY_FOR_REVIEW", "WAITING_FOR_REVIEW", "IN_REVIEW", "UNRESOLVED_ISSUES"}
 
 
@@ -100,6 +113,151 @@ def app_store_version(app_id: str) -> dict:
     if len(versions) != 1:
         raise RuntimeError(f"Expected one iOS App Store version {MARKETING_VERSION}; found {len(versions)}")
     return versions[0]
+
+
+def prepare_screenshots(artifact_dir: Path, output_name: str, size: tuple[int, int]) -> list[Path]:
+    manifest = json.loads((artifact_dir / "manifest.json").read_text(encoding="utf-8"))
+    attachments = [attachment for test in manifest for attachment in test.get("attachments", [])]
+    by_name = {
+        attachment.get("suggestedHumanReadableName", "").split("_0_")[0]: artifact_dir / attachment["exportedFileName"]
+        for attachment in attachments
+        if attachment.get("exportedFileName", "").lower().endswith(".png")
+    }
+    missing = [name for name in APP_STORE_SCREENSHOTS if name not in by_name]
+    if missing:
+        raise RuntimeError(f"Screenshot artifact is missing required captures: {', '.join(missing)}")
+
+    output_dir = artifact_dir / output_name
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prepared = []
+    for index, name in enumerate(APP_STORE_SCREENSHOTS, start=1):
+        output_file = output_dir / f"{index:02d}-{name}.png"
+        with Image.open(by_name[name]) as source:
+            image = ImageOps.fit(source.convert("RGB"), size, method=Image.Resampling.LANCZOS)
+            image.save(output_file, format="PNG", optimize=True)
+        prepared.append(output_file)
+    return prepared
+
+
+def screenshot_set_for(localization_id: str, display_type: str) -> str:
+    sets = list_pages(f"/appStoreVersionLocalizations/{localization_id}/appScreenshotSets?limit=200")
+    existing = [
+        screenshot_set
+        for screenshot_set in sets
+        if screenshot_set.get("attributes", {}).get("screenshotDisplayType") == display_type
+    ]
+    for screenshot_set in existing:
+        api_request(f"/appScreenshotSets/{screenshot_set['id']}", method="DELETE")
+
+    response = api_request(
+        "/appScreenshotSets",
+        method="POST",
+        body={
+            "data": {
+                "type": "appScreenshotSets",
+                "attributes": {"screenshotDisplayType": display_type},
+                "relationships": {
+                    "appStoreVersionLocalization": {
+                        "data": {"type": "appStoreVersionLocalizations", "id": localization_id}
+                    }
+                },
+            }
+        },
+    )
+    return response["data"]["id"]
+
+
+def upload_screenshot(screenshot_set_id: str, path: Path) -> str:
+    content = path.read_bytes()
+    reservation = api_request(
+        "/appScreenshots",
+        method="POST",
+        body={
+            "data": {
+                "type": "appScreenshots",
+                "attributes": {"fileName": path.name, "fileSize": len(content)},
+                "relationships": {
+                    "appScreenshotSet": {"data": {"type": "appScreenshotSets", "id": screenshot_set_id}}
+                },
+            }
+        },
+    )["data"]
+    screenshot_id = reservation["id"]
+    operations = reservation.get("attributes", {}).get("uploadOperations", [])
+    if not operations:
+        raise RuntimeError(f"Apple did not return upload instructions for screenshot {path.name}")
+
+    for operation in operations:
+        offset = operation["offset"]
+        length = operation["length"]
+        chunk = content[offset : offset + length]
+        headers = {item["name"]: item["value"] for item in operation.get("requestHeaders", [])}
+        request = Request(operation["url"], data=chunk, method=operation["method"], headers=headers)
+        try:
+            with urlopen(request, timeout=120) as response:
+                response.read()
+        except (HTTPError, URLError) as error:
+            raise RuntimeError(f"Could not upload App Store screenshot {path.name}: {error}") from None
+
+    api_request(
+        f"/appScreenshots/{screenshot_id}",
+        method="PATCH",
+        body={
+            "data": {
+                "type": "appScreenshots",
+                "id": screenshot_id,
+                "attributes": {"uploaded": True, "sourceFileChecksum": hashlib.md5(content).hexdigest()},
+            }
+        },
+    )
+    deadline = time.monotonic() + 5 * 60
+    while time.monotonic() < deadline:
+        screenshot = api_request(f"/appScreenshots/{screenshot_id}").get("data", {})
+        delivery = screenshot.get("attributes", {}).get("assetDeliveryState", {})
+        state = delivery.get("state")
+        if state == "COMPLETE":
+            return screenshot_id
+        if state == "FAILED":
+            errors = delivery.get("errors", [])
+            detail = "; ".join(item.get("detail", "") for item in errors if item.get("detail"))
+            raise RuntimeError(f"App Store Connect rejected screenshot {path.name}: {detail or 'processing failed'}")
+        time.sleep(10)
+    raise RuntimeError(f"App Store Connect did not finish processing screenshot {path.name}")
+
+
+def upload_screenshot_set(
+    localization_id: str,
+    artifact_dir: Path,
+    output_name: str,
+    display_type: str,
+    size: tuple[int, int],
+) -> int:
+    screenshots = prepare_screenshots(artifact_dir, output_name, size)
+    set_id = screenshot_set_for(localization_id, display_type)
+    uploaded = 0
+    for screenshot in screenshots:
+        upload_screenshot(set_id, screenshot)
+        uploaded += 1
+        print(f"Uploaded App Store screenshot ({display_type}): {screenshot.name}")
+    return uploaded
+
+
+def upload_store_screenshots(app_store_version_id: str) -> int:
+    localizations = list_pages(f"/appStoreVersions/{app_store_version_id}/appStoreVersionLocalizations?limit=200")
+    locale = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
+    if not locale:
+        available = ", ".join(item.get("attributes", {}).get("locale", "?") for item in localizations)
+        raise RuntimeError(f"No pt-BR App Store localization exists for version {MARKETING_VERSION}; found: {available or '(none)'}")
+
+    iphone_dir = Path(os.environ["ASC_SCREENSHOT_IPHONE_DIR"])
+    ipad_dir = Path(os.environ["ASC_SCREENSHOT_IPAD_DIR"])
+    iphone_count = upload_screenshot_set(
+        locale["id"], iphone_dir, "app-store-iphone-67", "APP_IPHONE_67", IPHONE_SCREENSHOT_SIZE
+    )
+    ipad_count = upload_screenshot_set(
+        locale["id"], ipad_dir, "app-store-ipad-11", "APP_IPAD_PRO_3GEN_11", IPAD_SCREENSHOT_SIZE
+    )
+    return iphone_count + ipad_count
 
 
 def prerelease_version_for(build: dict, included: list[dict]) -> str | None:
@@ -284,6 +442,9 @@ def main() -> None:
     if operation != "submit":
         raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
 
+    uploaded_count = upload_store_screenshots(version["id"])
+    print(f"Uploaded {uploaded_count} App Store screenshots for pt-BR.")
+
     if not current_build or current_build.get("id") != build["id"]:
         api_request(
             f"/appStoreVersions/{version['id']}/relationships/build",
@@ -296,6 +457,7 @@ def main() -> None:
         "### App Store version submitted for review\n"
         f"- App: `{BUNDLE_ID}`\n"
         f"- Version/build: `{MARKETING_VERSION} ({BUILD_NUMBER})`\n"
+        f"- App Store screenshots uploaded: `{uploaded_count}`\n"
         f"- Build ID: `{build['id']}`\n"
         f"- Review submission ID: `{submission['id']}`\n"
         f"- Review state: `{submission.get('attributes', {}).get('state', 'submitted')}`\n"

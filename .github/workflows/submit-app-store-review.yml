@@ -11,8 +11,14 @@ on:
         options:
           - inspect
           - submit
+      screenshots_run_id:
+        description: Successful GitHub screenshots workflow run to use for the App Store listing
+        required: true
+        type: string
+        default: "36108567704"
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -24,8 +30,24 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        if: ${{ inputs.action == 'submit' }}
+        with:
+          name: restaurantes-brasilia-screenshots-iphone
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.screenshots_run_id }}
+          path: ${{ runner.temp }}/asc-screenshots-iphone
+      - uses: actions/download-artifact@v4
+        if: ${{ inputs.action == 'submit' }}
+        with:
+          name: restaurantes-brasilia-screenshots-ipad-air-11-m3
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.screenshots_run_id }}
+          path: ${{ runner.temp }}/asc-screenshots-ipad
       - name: Install App Store Connect JWT dependency
-        run: python -m pip install --disable-pip-version-check 'PyJWT[crypto]'
+        run: python -m pip install --disable-pip-version-check 'PyJWT[crypto]' Pillow
       - name: Attach build 1.0 (3) and submit for App Review
         run: python tools/submit_app_store_review.py
         env:
@@ -34,3 +56,5 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APP_STORE_PROCESSING_TIMEOUT_MINUTES: "60"
           ASC_ACTION: ${{ inputs.action }}
+          ASC_SCREENSHOT_IPHONE_DIR: ${{ runner.temp }}/asc-screenshots-iphone
+          ASC_SCREENSHOT_IPAD_DIR: ${{ runner.temp }}/asc-screenshots-ipad

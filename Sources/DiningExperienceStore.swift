@@ -53,14 +53,18 @@ final class DiningExperienceStore: ObservableObject {
     func addRestaurant(_ restaurantID: String, to routeID: String) -> Bool {
         guard let index = routes.firstIndex(where: { $0.id == routeID }),
               !routes[index].restaurantIDs.contains(restaurantID) else { return false }
-        routes[index].restaurantIDs.append(restaurantID)
+        var updatedRoutes = routes
+        updatedRoutes[index].restaurantIDs.append(restaurantID)
+        routes = updatedRoutes
         saveRoutes()
         return true
     }
 
     func removeRestaurant(_ restaurantID: String, from routeID: String) {
         guard let index = routes.firstIndex(where: { $0.id == routeID }) else { return }
-        routes[index].restaurantIDs.removeAll { $0 == restaurantID }
+        var updatedRoutes = routes
+        updatedRoutes[index].restaurantIDs.removeAll { $0 == restaurantID }
+        routes = updatedRoutes
         saveRoutes()
     }
 
@@ -75,7 +79,9 @@ final class DiningExperienceStore: ObservableObject {
         }
         let adjustedDestination = max(0, min(destination - validOffsets.filter { $0 < destination }.count, orderedIDs.count))
         orderedIDs.insert(contentsOf: moving, at: adjustedDestination)
-        routes[index].restaurantIDs = orderedIDs
+        var updatedRoutes = routes
+        updatedRoutes[index].restaurantIDs = orderedIDs
+        routes = updatedRoutes
         saveRoutes()
     }
 

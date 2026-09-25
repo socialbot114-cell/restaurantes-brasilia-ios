@@ -486,7 +486,7 @@ private struct DiningRouteDetailView: View {
                             .onMove { dining.moveRestaurants(in: route.id, from: $0, to: $1) }
                         }
                     } header: {
-                        Text("\(route.restaurantIDs.count) lugares · arraste para reordenar")
+                        Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es") · arraste para reordenar")
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -850,7 +850,8 @@ private struct RoutePickerSheet: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(route.name).font(.headline)
-                                    Text("\(route.restaurantIDs.count) lugares").font(.caption).foregroundStyle(.secondary)
+                                    Text("\(route.restaurantIDs.count) lugar\(route.restaurantIDs.count == 1 ? "" : "es")")
+                                        .font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Image(systemName: dining.contains(restaurant.id, in: route.id) ? "checkmark.circle.fill" : "plus.circle")

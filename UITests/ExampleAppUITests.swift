@@ -67,6 +67,7 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         XCTAssertTrue(firstRestaurant.waitForExistence(timeout: 5))
         firstRestaurant.tap()
         app.buttons["done-adding-restaurants"].tap()
+        XCTAssertTrue(app.staticTexts["1 lugar · arraste para reordenar"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-roteiro-planejado")
 
     }

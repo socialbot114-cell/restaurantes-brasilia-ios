@@ -191,7 +191,7 @@ def submit_for_review(app_id: str, version_id: str) -> dict:
     existing = active_submission(app_id, version_id)
     if existing:
         state = existing.get("attributes", {}).get("state")
-        if state == "READY_FOR_REVIEW":
+        if state in {"READY_FOR_REVIEW", "UNRESOLVED_ISSUES"}:
             return api_request(
                 f"/reviewSubmissions/{existing['id']}",
                 method="PATCH",
@@ -203,7 +203,10 @@ def submit_for_review(app_id: str, version_id: str) -> dict:
                     }
                 },
             )["data"]
-        raise RuntimeError(f"Version {MARKETING_VERSION} already has an active App Review submission ({state})")
+        raise RuntimeError(
+            f"Version {MARKETING_VERSION} already has an App Review submission in state {state}; "
+            "refusing to create a duplicate"
+        )
 
     submission = api_request(
         "/reviewSubmissions",

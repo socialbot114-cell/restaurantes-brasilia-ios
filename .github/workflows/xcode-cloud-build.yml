@@ -1,0 +1,33 @@
+name: Restaurantes Brasília Xcode Cloud production build
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_name:
+        description: Exact Xcode Cloud workflow name (leave blank if only one is enabled)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  xcode-cloud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install App Store Connect JWT dependency
+        run: python -m pip install --disable-pip-version-check 'PyJWT[crypto]'
+      - name: Trigger and verify Xcode Cloud build
+        run: python tools/trigger_xcode_cloud_build.py
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          XCODE_CLOUD_WORKFLOW_NAME: ${{ inputs.workflow_name }}
+          XCODE_CLOUD_RUN_TIMEOUT_MINUTES: "90"
+          APP_STORE_PROCESSING_TIMEOUT_MINUTES: "45"

@@ -61,6 +61,8 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         let firstRestaurant = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'add-restaurant-'" )).firstMatch
         XCTAssertTrue(firstRestaurant.waitForExistence(timeout: 5))
         firstRestaurant.tap()
+        XCTAssertFalse(firstRestaurant.isEnabled)
+        capture(app, named: "restaurantes-lugar-selecionado")
         app.buttons["done-adding-restaurants"].tap()
         let plannedRestaurant = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'route-restaurant-'"))

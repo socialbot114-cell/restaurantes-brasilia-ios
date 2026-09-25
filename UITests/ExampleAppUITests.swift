@@ -14,6 +14,24 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
             app.navigationBars.buttons.firstMatch.tap()
         }
 
+        let search = app.textFields["restaurant-search-field"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("Verona")
+        let verona = app.descendants(matching: .any)
+            .matching(identifier: "row-duogourmet-verona-ristorante")
+            .firstMatch
+        XCTAssertTrue(verona.waitForExistence(timeout: 5))
+        verona.tap()
+        XCTAssertTrue(app.staticTexts["Foto: Tripadvisor"].waitForExistence(timeout: 5))
+        capture(app, named: "restaurantes-verona-detalhe")
+        app.buttons["record-visit"].tap()
+        XCTAssertTrue(app.buttons["save-visit"].waitForExistence(timeout: 5))
+        app.buttons["save-visit"].tap()
+        XCTAssertTrue(app.staticTexts["Meu diário"].waitForExistence(timeout: 5))
+        capture(app, named: "restaurantes-diario")
+        app.navigationBars.buttons.firstMatch.tap()
+
         tapTab(app, "Explorar")
         XCTAssertTrue(app.navigationBars["Explorar"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-explore")
@@ -50,14 +68,6 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         app.buttons["done-adding-restaurants"].tap()
         capture(app, named: "restaurantes-roteiro-planejado")
 
-        let plannedRestaurant = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'route-restaurant-'" )).firstMatch
-        XCTAssertTrue(plannedRestaurant.waitForExistence(timeout: 5))
-        plannedRestaurant.tap()
-        app.buttons["record-visit"].tap()
-        XCTAssertTrue(app.buttons["save-visit"].waitForExistence(timeout: 5))
-        app.buttons["save-visit"].tap()
-        XCTAssertTrue(app.staticTexts["Meu diário"].waitForExistence(timeout: 5))
-        capture(app, named: "restaurantes-diario")
     }
 
     private func tapTab(_ app: XCUIApplication, _ name: String) {

@@ -1114,7 +1114,9 @@ private struct SearchBar: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField(placeholder, text: $text).textInputAutocapitalization(.never)
+            TextField(placeholder, text: $text)
+                .textInputAutocapitalization(.never)
+                .accessibilityIdentifier("restaurant-search-field")
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                     .buttonStyle(.plain)

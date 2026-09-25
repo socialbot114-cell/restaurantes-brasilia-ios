@@ -435,14 +435,7 @@ def cancel_stale_review_submissions(app_id: str, version_id: str) -> None:
             has_items = bool(list_pages(f"/reviewSubmissions/{submission['id']}/items?limit=200"))
         is_target_submission = related_version == version_id
         is_empty_draft = state == "READY_FOR_REVIEW" and not related_version and not has_items
-        if not is_target_submission and not is_empty_draft:
-            continue
-        if state in {"WAITING_FOR_REVIEW", "IN_REVIEW", "COMPLETING"}:
-            raise RuntimeError(
-                f"Review submission {submission['id']} is already active in state {state}; "
-                "refusing to cancel or create another submission"
-            )
-        if state not in {"READY_FOR_REVIEW", "UNRESOLVED_ISSUES"}:
+        if is_target_submission or not is_empty_draft:
             continue
         result = api_request(
             f"/reviewSubmissions/{submission['id']}",

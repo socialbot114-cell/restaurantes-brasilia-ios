@@ -219,8 +219,8 @@ def upload_screenshot(screenshot_set_id: str, path: Path) -> str:
             return screenshot_id
         if state == "FAILED":
             errors = delivery.get("errors", [])
-            detail = "; ".join(item.get("detail", "") for item in errors if item.get("detail"))
-            raise RuntimeError(f"App Store Connect rejected screenshot {path.name}: {detail or 'processing failed'}")
+            detail = json.dumps(errors, sort_keys=True) if errors else "processing failed without details"
+            raise RuntimeError(f"App Store Connect rejected screenshot {path.name} (id {screenshot_id}): {detail}")
         time.sleep(10)
     raise RuntimeError(f"App Store Connect did not finish processing screenshot {path.name}")
 
@@ -258,6 +258,30 @@ def upload_store_screenshots(app_store_version_id: str) -> int:
         locale["id"], ipad_dir, "app-store-ipad-11", "APP_IPAD_PRO_3GEN_11", IPAD_SCREENSHOT_SIZE
     )
     return iphone_count + ipad_count
+
+
+def inspect_screenshot_sets(app_store_version_id: str) -> None:
+    localizations = list_pages(f"/appStoreVersions/{app_store_version_id}/appStoreVersionLocalizations?limit=200")
+    locale = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
+    if not locale:
+        print("No pt-BR App Store localization is present yet.")
+        return
+    sets = list_pages(f"/appStoreVersionLocalizations/{locale['id']}/appScreenshotSets?limit=200")
+    for screenshot_set in sets:
+        attributes = screenshot_set.get("attributes", {})
+        display_type = attributes.get("screenshotDisplayType")
+        if display_type not in {"APP_IPHONE_67", "APP_IPAD_PRO_3GEN_11"}:
+            continue
+        print(f"Screenshot set {display_type}: {screenshot_set['id']}")
+        screenshots = list_pages(f"/appScreenshotSets/{screenshot_set['id']}/appScreenshots?limit=200")
+        for screenshot in screenshots:
+            screenshot_attributes = screenshot.get("attributes", {})
+            delivery_state = screenshot_attributes.get("assetDeliveryState", {})
+            print(
+                f"- {screenshot_attributes.get('fileName', '(unnamed)')}: "
+                f"{delivery_state.get('state', 'UNKNOWN')} "
+                f"{json.dumps(delivery_state.get('errors', []), sort_keys=True)}"
+            )
 
 
 def prerelease_version_for(build: dict, included: list[dict]) -> str | None:
@@ -430,6 +454,7 @@ def main() -> None:
 
     operation = os.environ.get("ASC_ACTION", "submit").strip().lower()
     if operation == "inspect":
+        inspect_screenshot_sets(version["id"])
         summary = (
             f"### App Store Connect release state inspected\n"
             f"- App: `{BUNDLE_ID}`\n"

@@ -20,6 +20,8 @@ O release fica bloqueado até a origem e os direitos do catálogo serem revisado
 
 ## Revisão visual de fotos
 
+Os prints são normalizados para **1242 × 2688 px (iPhone)** e **2064 × 2752 px (iPad)** conforme `SCREENSHOT_REQUIREMENTS.md`.
+
 O workflow **Restaurantes Brasília photo visual review** compila o app e executa um teste de UI no iPhone 17 e em um simulador de iPad disponível no runner. Ele captura início, busca, detalhe com foto Duo Gourmet, lista Explorar, detalhe Verona/Tripadvisor e Favoritos. Também decodifica os 240 assets e gera contact sheets para inspeção visual.
 
 Para iniciar manualmente, abra **GitHub → Actions → Restaurantes Brasília photo visual review → Run workflow**. Baixe os artefatos `restaurantes-brasilia-photo-review-iphone` e `restaurantes-brasilia-photo-review-ipad`; abra `index.html` em cada artefato para revisar as telas e as contact sheets. O workflow também roda quando assets, catálogo, UI ou o teste visual mudam.

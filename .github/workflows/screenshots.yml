@@ -16,14 +16,22 @@ jobs:
         device:
           - name: iPhone 17
             slug: iphone
+            format: iphone
             os: "26.5"
-          - name: iPad Air 11-inch (M3)
-            slug: ipad-air-11-m3
-            os: "26.2"
+          - name: iPad Pro 13-inch (M5)
+            slug: ipad-pro-13
+            format: ipad
+            os: "26.5"
     steps:
       - uses: actions/checkout@v4
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install XcodeGen and screenshot dependency
+        run: |
+          brew install xcodegen
+          python -m venv "$RUNNER_TEMP/screenshot-venv"
+          "$RUNNER_TEMP/screenshot-venv/bin/python" -m pip install --disable-pip-version-check Pillow
       - name: Generate project
         run: xcodegen generate --spec project.yml
       - name: Run screenshot UI tests
@@ -41,14 +49,20 @@ jobs:
         run: |
           set -euo pipefail
           result_bundle="$RUNNER_TEMP/restaurantes-${{ matrix.device.slug }}.xcresult"
-          output_path="$RUNNER_TEMP/restaurantes-screenshots-${{ matrix.device.slug }}"
+          output_path="$RUNNER_TEMP/restaurantes-raw-screenshots-${{ matrix.device.slug }}"
           mkdir -p "$output_path"
           if [ -d "$result_bundle" ]; then
             xcrun xcresulttool export attachments \
               --path "$result_bundle" \
               --output-path "$output_path"
           fi
-          find "$RUNNER_TEMP/restaurantes-screenshots-${{ matrix.device.slug }}" -type f -name '*.png' -print
+      - name: Normalize screenshots to App Store dimensions
+        if: always()
+        run: |
+          "$RUNNER_TEMP/screenshot-venv/bin/python" tools/normalize_screenshots.py \
+            --input-dir "$RUNNER_TEMP/restaurantes-raw-screenshots-${{ matrix.device.slug }}" \
+            --output-dir "$RUNNER_TEMP/restaurantes-screenshots-${{ matrix.device.slug }}" \
+            --device "${{ matrix.device.format }}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

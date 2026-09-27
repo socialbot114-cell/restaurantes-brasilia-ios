@@ -23,7 +23,7 @@ APP_STORE_ID = "6813989690"
 MARKETING_VERSION = "1.0"
 BUILD_NUMBER = "3"
 IPHONE_SCREENSHOT_SIZE = (1242, 2688)
-IPAD_SCREENSHOT_SIZE = (1668, 2388)
+IPAD_SCREENSHOT_SIZE = (2064, 2752)
 APP_STORE_SCREENSHOTS = (
     "restaurantes-home",
     "restaurantes-verona-busca",
@@ -272,7 +272,7 @@ def upload_store_screenshots(app_store_version_id: str) -> int:
         locale["id"], iphone_dir, "app-store-iphone-65", "APP_IPHONE_65", IPHONE_SCREENSHOT_SIZE
     )
     ipad_count = upload_screenshot_set(
-        locale["id"], ipad_dir, "app-store-ipad-11", "APP_IPAD_PRO_3GEN_11", IPAD_SCREENSHOT_SIZE
+        locale["id"], ipad_dir, "app-store-ipad-13", "APP_IPAD_PRO_3GEN_129", IPAD_SCREENSHOT_SIZE
     )
     return iphone_count + ipad_count
 
@@ -287,7 +287,7 @@ def inspect_screenshot_sets(app_store_version_id: str) -> None:
     for screenshot_set in sets:
         attributes = screenshot_set.get("attributes", {})
         display_type = attributes.get("screenshotDisplayType")
-        if display_type not in {"APP_IPHONE_67", "APP_IPAD_PRO_3GEN_11"}:
+        if display_type not in {"APP_IPHONE_67", "APP_IPAD_PRO_3GEN_129"}:
             continue
         print(f"Screenshot set {display_type}: {screenshot_set['id']}")
         screenshots = list_pages(f"/appScreenshotSets/{screenshot_set['id']}/appScreenshots?limit=200")

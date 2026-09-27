@@ -12,6 +12,7 @@ on:
       - "project.yml"
       - "UITests/PhotoVisualReviewUITests.swift"
       - "tools/*photo*.py"
+      - "tools/normalize_screenshots.py"
       - ".github/workflows/photo-visual-review.yml"
   pull_request:
     paths:
@@ -22,6 +23,7 @@ on:
       - "project.yml"
       - "UITests/PhotoVisualReviewUITests.swift"
       - "tools/*photo*.py"
+      - "tools/normalize_screenshots.py"
       - ".github/workflows/photo-visual-review.yml"
 
 permissions:
@@ -64,7 +66,14 @@ jobs:
             simulator_selection="$(xcrun simctl list devices available -j | python3 -c '
           import json, sys
           data = json.load(sys.stdin)
-          preferred = {"iPad Air 11-inch (M4)": 3, "iPad Air 11-inch (M3)": 2, "iPad (A16)": 1}
+          preferred = {
+              "iPad Pro 13-inch (M5)": 6,
+              "iPad Pro 13-inch (M4)": 5,
+              "iPad Air 13-inch (M4)": 4,
+              "iPad Air 11-inch (M4)": 3,
+              "iPad Air 11-inch (M3)": 2,
+              "iPad (A16)": 1,
+          }
           candidates = []
           for runtime, devices in data["devices"].items():
               if ".iOS-" not in runtime:
@@ -114,6 +123,7 @@ jobs:
           "$RUNNER_TEMP/photo-review-venv/bin/python" tools/create_photo_review_bundle.py \
             --screenshots-dir "$RUNNER_TEMP/photo-review-raw-${{ matrix.device.slug }}" \
             --output-dir "$RUNNER_TEMP/photo-review-${{ matrix.device.slug }}" \
+            --device "${{ matrix.device.slug }}" \
             --minimum-screenshots 7
 
       - uses: actions/upload-artifact@v4

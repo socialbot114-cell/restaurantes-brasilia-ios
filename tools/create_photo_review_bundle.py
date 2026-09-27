@@ -6,15 +6,14 @@ import argparse
 import html
 import json
 import os
-import re
-import shutil
 import sys
 import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from PIL import Image, ImageDraw, ImageOps
+from normalize_screenshots import SCREENSHOT_SIZES, normalize_screenshots
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "Resources" / "Catalog" / "catalog.json"
@@ -25,65 +24,18 @@ CELL_WIDTH = 250
 CELL_HEIGHT = 190
 
 
-def read_manifest_records(value: Any) -> Iterator[dict[str, Any]]:
-    if isinstance(value, dict):
-        if "exportedFileName" in value:
-            yield value
-        for child in value.values():
-            yield from read_manifest_records(child)
-    elif isinstance(value, list):
-        for child in value:
-            yield from read_manifest_records(child)
-
-
-def safe_filename(value: str) -> str:
-    value = Path(value).stem
-    value = re.sub(r"[^A-Za-z0-9_-]+", "-", value).strip("-_")
-    return value or "screenshot"
-
-
-def export_screenshots(source_dir: Path, output_dir: Path) -> list[dict[str, str]]:
+def export_screenshots(source_dir: Path, output_dir: Path, device: str) -> list[dict[str, Any]]:
     screenshots_dir = output_dir / "screenshots"
-    screenshots_dir.mkdir(parents=True, exist_ok=True)
-    if not source_dir.exists():
-        return []
-
-    display_names: dict[Path, str] = {}
-    manifest_files = sorted(source_dir.rglob("manifest.json"))
-    for manifest_path in manifest_files:
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
-        for item in read_manifest_records(manifest):
-            exported_name = Path(str(item["exportedFileName"])).name
-            candidates = [source_dir / exported_name]
-            candidates.extend(source_dir.rglob(exported_name))
-            source = next((candidate for candidate in candidates if candidate.is_file()), None)
-            if source is None or source.suffix.lower() != ".png":
-                continue
-            display_names[source] = str(
-                item.get("suggestedHumanReadableName")
-                or item.get("name")
-                or source.stem
-            )
-
-    png_files = sorted(path for path in source_dir.rglob("*.png") if path.is_file())
-    copied: list[dict[str, str]] = []
-    used_names: set[str] = set()
-    for source in png_files:
-        display = display_names.get(source, source.stem)
-        stem = safe_filename(display)
-        target_name = stem
-        suffix = 2
-        while target_name.lower() in used_names:
-            target_name = f"{stem}-{suffix}"
-            suffix += 1
-        used_names.add(target_name.lower())
-        destination = screenshots_dir / f"{target_name}.png"
-        shutil.copy2(source, destination)
-        copied.append({"name": display, "file": destination.relative_to(output_dir).as_posix()})
-    return copied
+    normalized = normalize_screenshots(source_dir, screenshots_dir, device)
+    return [
+        {
+            **item,
+            "file": f"screenshots/{item['file']}",
+            "width": SCREENSHOT_SIZES[device][0],
+            "height": SCREENSHOT_SIZES[device][1],
+        }
+        for item in normalized
+    ]
 
 
 def audit_and_load_photos() -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -237,7 +189,7 @@ def write_gallery(
 <body>
   <header>
     <h1>Restaurantes Brasília · Photo visual review</h1>
-    <p>{len(screenshots)} simulator screenshots · {report['photos_decoded']}/{report['catalog_records']} photos decoded · generated {html.escape(report['generated_at'])}</p>
+    <p>{len(screenshots)} simulator screenshots · {report['screenshot_target']['width']} × {report['screenshot_target']['height']} px · {report['photos_decoded']}/{report['catalog_records']} photos decoded · generated {html.escape(report['generated_at'])}</p>
   </header>
   {issue_section}
   <section><h2>App screens</h2><div class="grid">{screenshot_cards}</div></section>
@@ -253,14 +205,20 @@ def main() -> int:
     parser.add_argument("--screenshots-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--minimum-screenshots", type=int, default=0)
+    parser.add_argument("--device", choices=sorted(SCREENSHOT_SIZES), default="iphone")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     photos, report = audit_and_load_photos()
-    screenshots = export_screenshots(args.screenshots_dir, args.output_dir)
+    screenshots = export_screenshots(args.screenshots_dir, args.output_dir, args.device)
     contact_sheets = create_contact_sheets(photos, args.output_dir)
     report["screenshots"] = screenshots
     report["contact_sheets"] = contact_sheets
+    report["screenshot_target"] = {
+        "device": args.device,
+        "width": SCREENSHOT_SIZES[args.device][0],
+        "height": SCREENSHOT_SIZES[args.device][1],
+    }
     report_path = args.output_dir / "photo-audit.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     write_gallery(args.output_dir, screenshots, contact_sheets, report)

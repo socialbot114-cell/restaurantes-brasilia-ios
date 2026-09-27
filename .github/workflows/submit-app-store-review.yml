@@ -12,10 +12,9 @@ on:
           - inspect
           - submit
       screenshots_run_id:
-        description: Successful GitHub screenshots workflow run to use for the App Store listing
-        required: true
+        description: Successful screenshot workflow run with the required iPhone and iPad dimensions
+        required: false
         type: string
-        default: "36108567704"
 
 permissions:
   actions: read
@@ -27,6 +26,15 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
+      - name: Require a screenshot workflow run ID when submitting
+        if: ${{ inputs.action == 'submit' }}
+        env:
+          SCREENSHOTS_RUN_ID: ${{ inputs.screenshots_run_id }}
+        run: |
+          if [ -z "$SCREENSHOTS_RUN_ID" ]; then
+            echo "Provide the run ID of a successful screenshots workflow with the required dimensions."
+            exit 1
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -41,7 +49,7 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ inputs.action == 'submit' }}
         with:
-          name: restaurantes-brasilia-screenshots-ipad-air-11-m3
+          name: restaurantes-brasilia-screenshots-ipad-pro-13
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ inputs.screenshots_run_id }}

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Gera os .imageset do Assets.xcassets a partir das imagens WebP otimizadas.
+"""Gera .imageset em JPEG para compatibilidade com o asset catalog do Xcode.
 
-Para cada registro do catalogo com photo_asset, copia o WebP do indice de midia
-para Resources/Assets.xcassets/<photo_asset>.imageset/ e escreve o Contents.json.
+Para cada registro do catalogo com photo_asset, converte o WebP otimizado do
+indice de midia em JPEG dentro de Resources/Assets.xcassets/<photo_asset>.imageset/
+e escreve o Contents.json.
 Pula assets ja autorizados manualmente (ex.: VeronaRistorante) e o proprio
 VeronaRistorante, cujo arquivo e mantido a mao.
 """
@@ -10,8 +11,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 from pathlib import Path
+
+from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "Resources" / "Assets.xcassets"
@@ -52,8 +54,13 @@ def main() -> None:
             continue
         imageset = ASSETS / f"{asset}.imageset"
         imageset.mkdir(parents=True, exist_ok=True)
-        dest = imageset / f"{asset}.webp"
-        shutil.copy2(src, dest)
+        dest = imageset / f"{asset}.jpg"
+        with Image.open(src) as image:
+            image = ImageOps.exif_transpose(image).convert("RGB")
+            image.save(dest, "JPEG", quality=84, optimize=True, progressive=True)
+        for stale in imageset.glob(f"{asset}.*"):
+            if stale.suffix.lower() == ".webp":
+                stale.unlink()
         contents = json.loads(json.dumps(CONTENTS))
         contents["images"][0]["filename"] = dest.name
         (imageset / "Contents.json").write_text(

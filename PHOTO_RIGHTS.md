@@ -17,7 +17,7 @@ The remaining **239** restaurant covers are referenced from the Duo Gourmet guid
 | Source | Duo Gourmet (`duogourmet.com.br`) |
 | Image host | `assets.duogourmet.com.br` |
 | Asset naming | `Duo_<Slug>` (e.g. `duogourmet-313-drink-bar` → `Duo_313_Drink_Bar`) |
-| Local format | WebP, longest side ≤ 1200 px |
+| Local format | JPEG (quality 84), longest side ≤ 1200 px |
 | `photo_rights_status` | `source-attributed-duo-gourmet` |
 | `photo_attribution` | `Duo Gourmet` |
 | Per-record source URL | `catalog.json` → `photo_source_url` |

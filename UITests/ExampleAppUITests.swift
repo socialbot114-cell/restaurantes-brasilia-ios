@@ -10,6 +10,8 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         let firstCard = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'hero-'")).firstMatch
         XCTAssertTrue(firstCard.waitForExistence(timeout: 5))
         firstCard.tap()
+        XCTAssertTrue(app.staticTexts["Foto: Duo Gourmet"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["record-visit"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-detalhe")
         app.buttons["record-visit"].tap()
         XCTAssertTrue(app.buttons["save-visit"].waitForExistence(timeout: 5))
@@ -37,6 +39,7 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
             add.tap()
         }
         tapTab(app, "Salvos")
+        XCTAssertTrue(app.navigationBars["Salvos"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-favoritos")
 
         tapTab(app, "Roteiros")
@@ -85,6 +88,7 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
     }
 
     private func capture(_ app: XCUIApplication, named name: String) {
+        Thread.sleep(forTimeInterval: 0.75)
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways

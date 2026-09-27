@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Attach the processed production build and submit App Store version 1.0."""
+"""Attach the processed production build and submit App Store version 1.0.1."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ from PIL import Image, ImageOps
 API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
-MARKETING_VERSION = "1.0"
-BUILD_NUMBER = "3"
+MARKETING_VERSION = "1.0.1"
+BUILD_NUMBER = "4"
 IPHONE_SCREENSHOT_SIZE = (1242, 2688)
 IPAD_SCREENSHOT_SIZE = (2064, 2752)
 APP_STORE_SCREENSHOTS = (

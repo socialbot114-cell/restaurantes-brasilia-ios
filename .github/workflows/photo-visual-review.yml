@@ -38,9 +38,9 @@ jobs:
           - name: iPhone 17
             slug: iphone
             os: "26.5"
-          - name: iPad Air 11-inch (M3)
-            slug: ipad-air-11-m3
-            os: "26.5"
+          - name: Available iPad simulator
+            slug: ipad
+            family: ipad
     steps:
       - uses: actions/checkout@v4
 
@@ -60,10 +60,37 @@ jobs:
       - name: Run photo-focused UI review and capture screens
         run: |
           set -euo pipefail
+          if [[ "${{ matrix.device.family }}" == "ipad" ]]; then
+            simulator_selection="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          preferred = {"iPad Air 11-inch (M4)": 3, "iPad Air 11-inch (M3)": 2, "iPad (A16)": 1}
+          candidates = []
+          for runtime, devices in data["devices"].items():
+              if ".iOS-" not in runtime:
+                  continue
+              try:
+                  version = tuple(int(part) for part in runtime.rsplit(".iOS-", 1)[1].split("-"))
+              except ValueError:
+                  version = (0,)
+              for device in devices:
+                  if device.get("isAvailable") and device["name"].startswith("iPad"):
+                      candidates.append((version, preferred.get(device["name"], 0), device))
+          if not candidates:
+              raise SystemExit("No available iPad simulator found.")
+          _, _, device = max(candidates, key=lambda item: (item[0], item[1]))
+          print(device["udid"] + "\t" + device["name"])
+          ')"
+            IFS=$'\t' read -r simulator_id simulator_name <<< "$simulator_selection"
+            echo "Using available iPad simulator: $simulator_name ($simulator_id)"
+            destination="platform=iOS Simulator,id=$simulator_id"
+          else
+            destination='platform=iOS Simulator,name=${{ matrix.device.name }},OS=${{ matrix.device.os }}'
+          fi
           xcodebuild test \
             -project RestaurantesBrasilia.xcodeproj \
             -scheme RestaurantesBrasilia \
-            -destination 'platform=iOS Simulator,name=${{ matrix.device.name }},OS=${{ matrix.device.os }}' \
+            -destination "$destination" \
             -resultBundlePath "$RUNNER_TEMP/photo-review-${{ matrix.device.slug }}.xcresult" \
             -only-testing:RestaurantesBrasiliaUITests/PhotoVisualReviewUITests/testPhotoVisualReview \
             CODE_SIGNING_ALLOWED=NO

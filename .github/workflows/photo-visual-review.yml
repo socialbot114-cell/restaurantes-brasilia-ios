@@ -1,0 +1,98 @@
+name: Restaurantes Brasília photo visual review
+run-name: Visual review of restaurant photos · ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "Resources/Assets.xcassets/**"
+      - "Resources/Catalog/catalog.json"
+      - "Sources/ContentView.swift"
+      - "Sources/RestaurantModels.swift"
+      - "project.yml"
+      - "UITests/PhotoVisualReviewUITests.swift"
+      - "tools/*photo*.py"
+      - ".github/workflows/photo-visual-review.yml"
+  pull_request:
+    paths:
+      - "Resources/Assets.xcassets/**"
+      - "Resources/Catalog/catalog.json"
+      - "Sources/ContentView.swift"
+      - "Sources/RestaurantModels.swift"
+      - "project.yml"
+      - "UITests/PhotoVisualReviewUITests.swift"
+      - "tools/*photo*.py"
+      - ".github/workflows/photo-visual-review.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  visual-review:
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        device:
+          - name: iPhone 17
+            slug: iphone
+            os: "26.5"
+          - name: iPad Air 11-inch (M3)
+            slug: ipad-air-11-m3
+            os: "26.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install XcodeGen and contact-sheet dependency
+        run: |
+          brew install xcodegen
+          python -m venv "$RUNNER_TEMP/photo-review-venv"
+          "$RUNNER_TEMP/photo-review-venv/bin/python" -m pip install --disable-pip-version-check Pillow
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+
+      - name: Run photo-focused UI review and capture screens
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project RestaurantesBrasilia.xcodeproj \
+            -scheme RestaurantesBrasilia \
+            -destination 'platform=iOS Simulator,name=${{ matrix.device.name }},OS=${{ matrix.device.os }}' \
+            -resultBundlePath "$RUNNER_TEMP/photo-review-${{ matrix.device.slug }}.xcresult" \
+            -only-testing:RestaurantesBrasiliaUITests/PhotoVisualReviewUITests/testPhotoVisualReview \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export UI screenshot attachments
+        if: always()
+        run: |
+          set -euo pipefail
+          result_bundle="$RUNNER_TEMP/photo-review-${{ matrix.device.slug }}.xcresult"
+          raw_output="$RUNNER_TEMP/photo-review-raw-${{ matrix.device.slug }}"
+          mkdir -p "$raw_output"
+          if [ -d "$result_bundle" ]; then
+            xcrun xcresulttool export attachments \
+              --path "$result_bundle" \
+              --output-path "$raw_output"
+          fi
+
+      - name: Build contact sheets, audit report, and gallery
+        if: always()
+        run: |
+          "$RUNNER_TEMP/photo-review-venv/bin/python" tools/create_photo_review_bundle.py \
+            --screenshots-dir "$RUNNER_TEMP/photo-review-raw-${{ matrix.device.slug }}" \
+            --output-dir "$RUNNER_TEMP/photo-review-${{ matrix.device.slug }}" \
+            --minimum-screenshots 7
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: restaurantes-brasilia-photo-review-${{ matrix.device.slug }}
+          path: ${{ runner.temp }}/photo-review-${{ matrix.device.slug }}
+          if-no-files-found: error
+          retention-days: 14

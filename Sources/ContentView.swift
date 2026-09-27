@@ -275,6 +275,7 @@ private struct ExploreView: View {
                                         RestaurantCard(restaurant: restaurant, showFavorite: false)
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityIdentifier("explore-row-\(restaurant.id)")
                                     FavoriteButton(restaurant: restaurant, favorites: favorites)
                                 }
                             }
@@ -640,7 +641,7 @@ private struct RestaurantDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 hero
                 if restaurant.photoAsset != nil {
-                    Label("Foto: Tripadvisor", systemImage: "photo")
+                    Label("Foto: \(restaurant.photoAttribution ?? "Duo Gourmet")", systemImage: "photo")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -713,6 +714,7 @@ private struct RestaurantDetailView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 24))
         .accessibilityLabel(restaurant.photoAsset == nil ? "Categoria \(restaurant.displayCategory)" : "Foto de \(restaurant.name)")
+        .accessibilityIdentifier("restaurant-photo-\(restaurant.id)")
     }
 
     private var categoryBadge: some View {
@@ -1037,6 +1039,7 @@ private struct RestaurantArtwork: View {
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .accessibilityLabel(restaurant.photoAsset == nil ? restaurant.displayCategory : "Foto de \(restaurant.name)")
+        .accessibilityIdentifier("restaurant-artwork-\(restaurant.id)")
     }
 }
 

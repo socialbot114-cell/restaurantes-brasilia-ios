@@ -36,12 +36,14 @@ final class RestaurantDomainTests: XCTestCase {
             dataStatus: "verified",
             photoAsset: "VeronaRistorante",
             photoSourceURL: "https://example.com/photo.jpg",
-            photoRightsStatus: "user-confirmed-authorized"
+            photoRightsStatus: "user-confirmed-authorized",
+            photoAttribution: "Tripadvisor"
         )
         let encoded = try JSONEncoder().encode([withPhoto])
         let decoded = try JSONDecoder().decode([Restaurant].self, from: encoded)
         XCTAssertEqual(decoded.first?.photoAsset, "VeronaRistorante")
         XCTAssertEqual(decoded.first?.photoRightsStatus, "user-confirmed-authorized")
+        XCTAssertEqual(decoded.first?.photoAttribution, "Tripadvisor")
 
         let legacyJSON = Data(#"[{"id":"legacy","name":"Lugar","source":"test","last_verified":"","data_status":"verified"}]"#.utf8)
         let legacy = try XCTUnwrap(JSONDecoder().decode([Restaurant].self, from: legacyJSON).first)

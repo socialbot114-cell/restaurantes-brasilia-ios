@@ -17,6 +17,7 @@ struct Restaurant: Codable, Identifiable, Hashable {
     var photoAsset: String? = nil
     var photoSourceURL: String? = nil
     var photoRightsStatus: String? = nil
+    var photoAttribution: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, name, category, neighborhood, address, phone, website, rating
@@ -28,6 +29,7 @@ struct Restaurant: Codable, Identifiable, Hashable {
         case photoAsset = "photo_asset"
         case photoSourceURL = "photo_source_url"
         case photoRightsStatus = "photo_rights_status"
+        case photoAttribution = "photo_attribution"
     }
 
     var displayCategory: String { category?.nilIfEmpty ?? "Restaurante" }

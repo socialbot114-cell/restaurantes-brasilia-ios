@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Attach the processed production build and submit App Store version 1.0.1."""
+"""Attach the processed production build and submit App Store version 1.1.0."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ from PIL import Image, ImageOps
 API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
-MARKETING_VERSION = "1.0.1"
-BUILD_NUMBER = "4"
+MARKETING_VERSION = "1.1.0"
+BUILD_NUMBER = "5"
 IPHONE_SCREENSHOT_SIZE = (1242, 2688)
 IPAD_SCREENSHOT_SIZE = (2064, 2752)
 APP_STORE_SCREENSHOTS = (
@@ -453,7 +453,7 @@ def review_readiness_summary(version_id: str) -> list[str]:
         missing = [field for field in required_fields if not attributes.get(field)]
         summary.append(f"pt-BR App Store localization missing fields: {','.join(missing) or 'none'}")
         if not attributes.get("whatsNew"):
-            summary.append("pt-BR release notes (What's New) are blank; optional for this first App Store version")
+            summary.append("pt-BR release notes (What's New) are blank; required for App Store updates")
     return summary
 
 

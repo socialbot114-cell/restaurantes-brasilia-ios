@@ -17,8 +17,8 @@ API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 REPOSITORY_OWNER = "socialbot114-cell"
 REPOSITORY_NAME = "restaurantes-brasilia-ios"
-MARKETING_VERSION = "1.0.1"
-BUILD_NUMBER = "4"
+MARKETING_VERSION = "1.1.0"
+BUILD_NUMBER = "5"
 
 
 def make_token() -> str:

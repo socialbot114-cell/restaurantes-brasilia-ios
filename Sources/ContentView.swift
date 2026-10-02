@@ -613,10 +613,13 @@ private struct DiningRouteDetailView: View {
                     Button { isRenaming = true } label: {
                         Label("Renomear roteiro", systemImage: "pencil")
                     }
+                    .accessibilityIdentifier("rename-route")
                     Button("Excluir roteiro", role: .destructive) { isConfirmingDelete = true }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
+                .accessibilityLabel("Mais opções")
+                .accessibilityIdentifier("route-menu")
             }
         }
         .sheet(isPresented: $isAddingRestaurants) {
@@ -1117,7 +1120,7 @@ private struct RestaurantMapSheet: View {
 
     @MainActor
     private func searchForRestaurant() async {
-        var request = MKLocalSearch.Request()
+        let request = MKLocalSearch.Request()
         request.naturalLanguageQuery = [restaurant.name, restaurant.address, "Brasília DF"]
             .compactMap { $0 }
             .joined(separator: ", ")

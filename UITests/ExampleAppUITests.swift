@@ -75,6 +75,72 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
 
     }
 
+    func testVersion110Flows() {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Qual é a sua fome hoje?"].waitForExistence(timeout: 10))
+
+        // Surpreenda-me abre a ficha de um restaurante sorteado.
+        let surprise = app.buttons["surprise-me"]
+        XCTAssertTrue(surprise.waitForExistence(timeout: 5))
+        if !surprise.isHittable { app.swipeUp() }
+        surprise.tap()
+        XCTAssertTrue(app.buttons["record-visit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["share-restaurant"].waitForExistence(timeout: 5))
+        capture(app, named: "restaurantes-surpreenda-me")
+
+        // Registrar visita faz o lugar aparecer em Salvos > Visitados.
+        app.buttons["record-visit"].tap()
+        XCTAssertTrue(app.buttons["save-visit"].waitForExistence(timeout: 5))
+        app.buttons["save-visit"].tap()
+        XCTAssertTrue(app.staticTexts["Meu diário"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+
+        tapTab(app, "Salvos")
+        XCTAssertTrue(app.navigationBars["Salvos"].waitForExistence(timeout: 5))
+        let visitedSegment = app.buttons["Visitados"]
+        XCTAssertTrue(visitedSegment.waitForExistence(timeout: 5))
+        visitedSegment.tap()
+        let visitedRow = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'visited-'"))
+            .firstMatch
+        XCTAssertTrue(visitedRow.waitForExistence(timeout: 5))
+        capture(app, named: "restaurantes-visitados")
+
+        // Criar e renomear um roteiro.
+        tapTab(app, "Roteiros")
+        XCTAssertTrue(app.navigationBars["Roteiros"].waitForExistence(timeout: 5))
+        let createRoute = app.buttons["create-route-empty"].waitForExistence(timeout: 2)
+            ? app.buttons["create-route-empty"]
+            : app.buttons["create-route"]
+        XCTAssertTrue(createRoute.waitForExistence(timeout: 5))
+        createRoute.tap()
+        let routeName = app.textFields["route-name-field"]
+        XCTAssertTrue(routeName.waitForExistence(timeout: 5))
+        routeName.tap()
+        routeName.typeText("Roteiro teste")
+        app.buttons["save-route"].tap()
+
+        let createdRoute = app.staticTexts["Roteiro teste"].firstMatch
+        XCTAssertTrue(createdRoute.waitForExistence(timeout: 5))
+        createdRoute.tap()
+        let menu = app.buttons["route-menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        menu.tap()
+        let rename = app.buttons["rename-route"]
+        XCTAssertTrue(rename.waitForExistence(timeout: 5))
+        rename.tap()
+
+        let renameField = app.textFields["route-name-field"]
+        XCTAssertTrue(renameField.waitForExistence(timeout: 5))
+        XCTAssertEqual(renameField.value as? String, "Roteiro teste")
+        renameField.tap()
+        renameField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20) + "Roteiro renomeado")
+        app.buttons["save-route"].tap()
+        XCTAssertTrue(app.navigationBars["Roteiro renomeado"].waitForExistence(timeout: 5))
+        capture(app, named: "restaurantes-roteiro-renomeado")
+    }
+
     private func tapTab(_ app: XCUIApplication, _ name: String) {
         let tabBarButton = app.tabBars.buttons[name]
         if tabBarButton.waitForExistence(timeout: 2) {

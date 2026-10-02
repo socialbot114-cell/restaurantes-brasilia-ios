@@ -98,6 +98,12 @@ final class RestaurantDomainTests: XCTestCase {
         )
     }
 
+    func testRatingUsesBrazilianDecimalComma() {
+        let rated = Restaurant(id: "r", name: "A", category: nil, neighborhood: nil, address: nil, phone: nil, website: nil, rating: 4.6, reviewCount: 3, source: "t", sourceURL: nil, lastVerified: "", dataStatus: "verified")
+        XCTAssertEqual(rated.formattedRating, "4,6")
+        XCTAssertNil(restaurant(id: "unrated").formattedRating)
+    }
+
     func testBundledCatalogHasNoDuplicateRegionSpellings() {
         let catalog = RestaurantCatalog(bundle: Bundle(for: RestaurantCatalog.self))
         XCTAssertEqual(catalog.loadState, .loaded)

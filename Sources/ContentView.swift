@@ -76,6 +76,7 @@ private struct HomeView: View {
                 .padding(.bottom, 24)
             }
             .background(Theme.canvas)
+            .scrollDismissesKeyboard(.immediately)
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(item: $surprise) { restaurant in
                 RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining)
@@ -316,6 +317,7 @@ private struct ExploreView: View {
                 .padding(.bottom, 24)
             }
             .background(Theme.canvas)
+            .scrollDismissesKeyboard(.immediately)
             .navigationTitle("Explorar")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -649,7 +651,7 @@ private struct AddRestaurantsSheet: View {
     let routeID: String
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
-    @State private var selectedRestaurantIDs = Set<String>()
+    @State private var selectedRestaurantIDs: [String] = []
 
     private var restaurants: [Restaurant] {
         RestaurantCatalog.filter(catalog.restaurants, query: query)
@@ -667,7 +669,7 @@ private struct AddRestaurantsSheet: View {
                     }
                     Spacer()
                     Button {
-                        selectedRestaurantIDs.insert(restaurant.id)
+                        toggleSelection(restaurant.id)
                     } label: {
                         Image(systemName: isSelected(restaurant.id) ? "checkmark.circle.fill" : "plus.circle")
                             .foregroundStyle(isSelected(restaurant.id) ? Theme.forest : Theme.terracotta)
@@ -675,18 +677,22 @@ private struct AddRestaurantsSheet: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.borderless)
-                    .disabled(isSelected(restaurant.id))
+                    .disabled(dining.contains(restaurant.id, in: routeID))
                     .accessibilityValue(isSelected(restaurant.id) ? "Selecionado" : "Adicionar")
                     .accessibilityIdentifier("add-restaurant-\(restaurant.id)")
                 }
             }
             .listStyle(.plain)
+            .sensoryFeedback(.selection, trigger: selectedRestaurantIDs)
             .navigationTitle("Adicionar lugares")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Buscar restaurante")
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancelar") { dismiss() }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Concluir") {
+                    Button(selectedRestaurantIDs.isEmpty ? "Concluir" : "Adicionar (\(selectedRestaurantIDs.count))") {
                         for restaurantID in selectedRestaurantIDs {
                             dining.addRestaurant(restaurantID, to: routeID)
                         }
@@ -700,6 +706,14 @@ private struct AddRestaurantsSheet: View {
 
     private func isSelected(_ restaurantID: String) -> Bool {
         dining.contains(restaurantID, in: routeID) || selectedRestaurantIDs.contains(restaurantID)
+    }
+
+    private func toggleSelection(_ restaurantID: String) {
+        if let index = selectedRestaurantIDs.firstIndex(of: restaurantID) {
+            selectedRestaurantIDs.remove(at: index)
+        } else {
+            selectedRestaurantIDs.append(restaurantID)
+        }
     }
 }
 
@@ -750,6 +764,11 @@ private struct RestaurantDetailView: View {
     @State private var isShowingRoutePicker = false
     @State private var isShowingMap = false
     @State private var copiedContact: String?
+    @State private var visitPendingDeletion: DiningVisit?
+
+    private var isConfirmingVisitDeletion: Binding<Bool> {
+        Binding(get: { visitPendingDeletion != nil }, set: { if !$0 { visitPendingDeletion = nil } })
+    }
 
     private var style: CuisineStyle.Identity { CuisineStyle.identity(for: restaurant.displayCategory) }
 
@@ -807,6 +826,10 @@ private struct RestaurantDetailView: View {
         .sheet(isPresented: $isShowingMap) {
             RestaurantMapSheet(restaurant: restaurant)
         }
+        .sensoryFeedback(.success, trigger: copiedContact) { _, new in new != nil }
+        .confirmationDialog("Excluir esta visita do diário?", isPresented: isConfirmingVisitDeletion, titleVisibility: .visible, presenting: visitPendingDeletion) { visit in
+            Button("Excluir visita", role: .destructive) { dining.deleteVisit(visit.id) }
+        }
     }
 
     private var hero: some View {
@@ -849,7 +872,7 @@ private struct RestaurantDetailView: View {
 
     private var ratingRow: some View {
         HStack(spacing: 14) {
-            Label(String(format: "%.1f", restaurant.rating ?? 0), systemImage: "star.fill").foregroundStyle(Theme.ipe)
+            Label(restaurant.formattedRating ?? "", systemImage: "star.fill").foregroundStyle(Theme.ipe)
             if let count = restaurant.reviewCount {
                 Text("\(compactCount(count)) avaliações").foregroundStyle(.secondary)
             }
@@ -905,6 +928,10 @@ private struct RestaurantDetailView: View {
         Button {
             UIPasteboard.general.string = value
             copiedContact = value
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                if copiedContact == value { copiedContact = nil }
+            }
         } label: {
             Label(copiedContact == value ? copiedTitle : title, systemImage: symbol)
                 .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 6)
@@ -914,18 +941,19 @@ private struct RestaurantDetailView: View {
     }
 
     private var visitHistory: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let visits = dining.visits(for: restaurant.id)
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Meu diário").font(.title3.bold())
                 Spacer()
-                Text("\(dining.visits(for: restaurant.id).count) visita\(dining.visits(for: restaurant.id).count == 1 ? "" : "s")")
+                Text("\(visits.count) visita\(visits.count == 1 ? "" : "s")")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            if dining.visits(for: restaurant.id).isEmpty {
+            if visits.isEmpty {
                 Text("Suas datas, notas e observações ficam salvas somente neste aparelho.")
                     .font(.subheadline).foregroundStyle(.secondary)
             } else {
-                ForEach(dining.visits(for: restaurant.id)) { visit in
+                ForEach(visits) { visit in
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(visit.visitedAt.formatted(date: .abbreviated, time: .omitted))
@@ -934,7 +962,7 @@ private struct RestaurantDetailView: View {
                             Label("\(visit.personalRating)/5", systemImage: "star.fill")
                                 .font(.caption.weight(.semibold)).foregroundStyle(Theme.ipe)
                             Button {
-                                dining.deleteVisit(visit.id)
+                                visitPendingDeletion = visit
                             } label: {
                                 Image(systemName: "trash").foregroundStyle(Theme.terracotta)
                             }
@@ -970,6 +998,7 @@ private struct RoutePickerSheet: View {
     @ObservedObject var dining: DiningExperienceStore
     @Environment(\.dismiss) private var dismiss
     @State private var isCreatingRoute = false
+    @State private var didCreateRoute = false
 
     var body: some View {
         NavigationStack {
@@ -1014,12 +1043,14 @@ private struct RoutePickerSheet: View {
                         .accessibilityLabel("Criar roteiro")
                 }
             }
-            .sheet(isPresented: $isCreatingRoute) {
+            .sheet(isPresented: $isCreatingRoute, onDismiss: {
+                if didCreateRoute { dismiss() }
+            }) {
                 RouteNameSheet(title: "Novo roteiro", actionTitle: "Criar e adicionar") { name in
                     if let route = dining.createRoute(name: name) {
                         dining.addRestaurant(restaurant.id, to: route.id)
+                        didCreateRoute = true
                     }
-                    dismiss()
                 }
             }
         }
@@ -1039,7 +1070,7 @@ private struct VisitEditorSheet: View {
         NavigationStack {
             Form {
                 Section("Visita") {
-                    DatePicker("Data", selection: $visitedAt, displayedComponents: .date)
+                    DatePicker("Data", selection: $visitedAt, in: ...Date(), displayedComponents: .date)
                     Picker("Minha nota", selection: $rating) {
                         ForEach(1...5, id: \.self) { value in
                             Text("\(value) \(value == 1 ? "estrela" : "estrelas")").tag(value)
@@ -1184,7 +1215,7 @@ private struct RestaurantCard: View {
                 if restaurant.hasRating {
                     HStack(spacing: 4) {
                         Image(systemName: "star.fill").font(.caption2).foregroundStyle(Theme.ipe)
-                        Text(String(format: "%.1f", restaurant.rating ?? 0)).font(.caption.weight(.semibold))
+                        Text(restaurant.formattedRating ?? "").font(.caption.weight(.semibold))
                         if let count = restaurant.reviewCount { Text("(\(compactCount(count)))").font(.caption2).foregroundStyle(.secondary) }
                     }
                 }
@@ -1219,7 +1250,7 @@ private struct HeroCard: View {
                 if restaurant.hasRating {
                     HStack(spacing: 4) {
                         Image(systemName: "star.fill").font(.caption2).foregroundStyle(Theme.ipe)
-                        Text(String(format: "%.1f", restaurant.rating ?? 0)).font(.caption.weight(.semibold))
+                        Text(restaurant.formattedRating ?? "").font(.caption.weight(.semibold))
                         if let count = restaurant.reviewCount { Text("· \(compactCount(count))").font(.caption2).foregroundStyle(.secondary) }
                     }
                 }
@@ -1247,6 +1278,7 @@ private struct FavoriteButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .sensoryFeedback(.impact(weight: .light), trigger: favorites.contains(restaurant.id))
         .accessibilityLabel(favorites.contains(restaurant.id) ? "Remover dos favoritos" : "Adicionar aos favoritos")
     }
 }
@@ -1261,6 +1293,7 @@ private struct SearchBar: View {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             TextField(placeholder, text: $text)
                 .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
                 .accessibilityIdentifier("restaurant-search-field")
                 .focused($isFocused)
                 .submitLabel(.search)

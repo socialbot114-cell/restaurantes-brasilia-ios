@@ -50,9 +50,8 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
             ? app.buttons["create-route-empty"]
             : app.buttons["create-route"]
         XCTAssertTrue(createRoute.waitForExistence(timeout: 5))
-        createRoute.tap()
         let routeName = app.textFields["route-name-field"]
-        XCTAssertTrue(routeName.waitForExistence(timeout: 5))
+        tap(createRoute, until: routeName)
         routeName.tap()
         routeName.typeText("Sabores do DF")
         app.buttons["save-route"].tap()
@@ -114,9 +113,8 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
             ? app.buttons["create-route-empty"]
             : app.buttons["create-route"]
         XCTAssertTrue(createRoute.waitForExistence(timeout: 5))
-        createRoute.tap()
         let routeName = app.textFields["route-name-field"]
-        XCTAssertTrue(routeName.waitForExistence(timeout: 5))
+        tap(createRoute, until: routeName)
         routeName.tap()
         routeName.typeText("Roteiro teste")
         app.buttons["save-route"].tap()
@@ -126,19 +124,25 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         createdRoute.tap()
         let menu = app.buttons["route-menu"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
-        menu.tap()
         let rename = app.buttons["rename-route"]
-        XCTAssertTrue(rename.waitForExistence(timeout: 5))
-        rename.tap()
-
+        tap(menu, until: rename)
         let renameField = app.textFields["route-name-field"]
-        XCTAssertTrue(renameField.waitForExistence(timeout: 5))
+        tap(rename, until: renameField)
         XCTAssertEqual(renameField.value as? String, "Roteiro teste")
         renameField.tap()
         renameField.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 20) + "Roteiro renomeado")
         app.buttons["save-route"].tap()
         XCTAssertTrue(app.navigationBars["Roteiro renomeado"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-roteiro-renomeado")
+    }
+
+    /// Taps `element` and waits for `expected`; retries once because slow
+    /// CI simulators (notably iPad) sometimes drop the first tap.
+    private func tap(_ element: XCUIElement, until expected: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        element.tap()
+        if expected.waitForExistence(timeout: 15) { return }
+        if element.exists && element.isHittable { element.tap() }
+        XCTAssertTrue(expected.waitForExistence(timeout: 15), "\(expected) did not appear", file: file, line: line)
     }
 
     private func tapTab(_ app: XCUIApplication, _ name: String) {

@@ -21,7 +21,7 @@ API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
 MARKETING_VERSION = "1.1.0"
-BUILD_NUMBER = "5"
+BUILD_NUMBER = "6"
 RELEASE_NOTES_PT_BR = (
     "Novidades da versão 1.1.0:\n"
     "• Surpreenda-me: sorteie um restaurante bem avaliado para conhecer hoje.\n"
@@ -37,7 +37,7 @@ APP_STORE_SCREENSHOTS = (
     "restaurantes-verona-busca",
     "restaurantes-detalhe",
     "restaurantes-explore",
-    "restaurantes-diario",
+    "restaurantes-visitados",
     "restaurantes-roteiro-planejado",
 )
 ACTIVE_REVIEW_STATES = {"READY_FOR_REVIEW", "WAITING_FOR_REVIEW", "IN_REVIEW", "UNRESOLVED_ISSUES"}

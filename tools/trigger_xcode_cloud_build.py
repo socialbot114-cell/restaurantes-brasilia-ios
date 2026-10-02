@@ -18,7 +18,7 @@ BUNDLE_ID = "br.com.restaurantes.bsb"
 REPOSITORY_OWNER = "socialbot114-cell"
 REPOSITORY_NAME = "restaurantes-brasilia-ios"
 MARKETING_VERSION = "1.1.0"
-BUILD_NUMBER = "5"
+BUILD_NUMBER = "6"
 
 
 def make_token() -> str:

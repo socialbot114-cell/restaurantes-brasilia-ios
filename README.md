@@ -6,7 +6,7 @@ MVP SwiftUI offline-first para descoberta de restaurantes no Distrito Federal.
 - App Store ID: `6813989690`
 - SKU: `restaurantes-brasilia`
 - Projeto gerado com XcodeGen
-- Catálogo local, busca, filtros, favoritos e links para telefone/site/mapa
+- Catálogo local, busca, filtros, favoritos, "Surpreenda-me", roteiros, diário de visitas e mapa interno
 
 ## Desenvolvimento
 
@@ -15,6 +15,8 @@ xcodegen generate --spec project.yml
 xcodebuild test -project RestaurantesBrasilia.xcodeproj -scheme RestaurantesBrasilia -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'
 python3 tools/jerv_cli.py validate app.yml
 ```
+
+Depois de importar um novo catálogo, rode `python3 tools/normalize_neighborhoods.py` para unificar as grafias de regiões.
 
 O release fica bloqueado até a origem e os direitos do catálogo serem revisados.
 

@@ -84,6 +84,29 @@ final class RestaurantDomainTests: XCTestCase {
         XCTAssertEqual(catalog.topRated.first?.id, "high")
     }
 
+    func testCatalogLooksUpRestaurantsByID() {
+        let catalog = RestaurantCatalog(data: catalogData([restaurant(id: "one", name: "Casa do Pequi"), restaurant(id: "two")]))
+        XCTAssertEqual(catalog.restaurant(withID: "one")?.name, "Casa do Pequi")
+        XCTAssertNil(catalog.restaurant(withID: "missing"))
+    }
+
+    func testShareTextSummarizesTheRestaurant() {
+        let restaurant = Restaurant(id: "one", name: "Casa do Pequi", category: "Brasileira", neighborhood: "Asa Sul", address: "CLS 405", phone: "(61) 3333-0000", website: nil, rating: 4.6, reviewCount: 120, source: "test", sourceURL: nil, lastVerified: "2026-01-01", dataStatus: "verified")
+        XCTAssertEqual(
+            restaurant.shareText,
+            "Casa do Pequi — Brasileira · Asa Sul\nCLS 405\nTel.: (61) 3333-0000\nNota 4,6 no Duo Gourmet\nEncontrado no app Restaurantes Brasília"
+        )
+    }
+
+    func testBundledCatalogHasNoDuplicateRegionSpellings() {
+        let catalog = RestaurantCatalog(bundle: Bundle(for: RestaurantCatalog.self))
+        XCTAssertEqual(catalog.loadState, .loaded)
+        let neighborhoods = catalog.neighborhoods
+        for alias in ["Asa Sul,", "Guará II", "Guará 2", "Taguatinga sul", "Plano Piloto", "SHCS", "SHCN"] {
+            XCTAssertFalse(neighborhoods.contains(alias), "Região não normalizada: \(alias)")
+        }
+    }
+
     private func restaurant(id: String, name: String = "Lugar", category: String? = nil, neighborhood: String? = nil, address: String? = nil) -> Restaurant {
         Restaurant(id: id, name: name, category: category, neighborhood: neighborhood, address: address, phone: nil, website: nil, rating: nil, reviewCount: 7, source: "test", sourceURL: nil, lastVerified: "2026-01-01", dataStatus: "pending-rights-review")
     }

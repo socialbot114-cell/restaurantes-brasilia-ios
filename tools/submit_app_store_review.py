@@ -22,6 +22,14 @@ BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
 MARKETING_VERSION = "1.1.0"
 BUILD_NUMBER = "5"
+RELEASE_NOTES_PT_BR = (
+    "Novidades da versão 1.1.0:\n"
+    "• Surpreenda-me: sorteie um restaurante bem avaliado para conhecer hoje.\n"
+    "• Nova aba Visitados em Salvos, com a última visita e sua nota pessoal.\n"
+    "• Compartilhe a ficha de um restaurante com amigos.\n"
+    "• Renomeie seus roteiros.\n"
+    "• Filtro de regiões revisado, sem bairros duplicados."
+)
 IPHONE_SCREENSHOT_SIZE = (1242, 2688)
 IPAD_SCREENSHOT_SIZE = (2064, 2752)
 APP_STORE_SCREENSHOTS = (
@@ -115,12 +123,48 @@ def app_record() -> dict:
     return matches[0]
 
 
-def app_store_version(app_id: str) -> dict:
+def app_store_version(app_id: str, create_if_missing: bool = False) -> dict:
     query = urlencode({"filter[platform]": "IOS", "filter[versionString]": MARKETING_VERSION, "limit": "200"})
     versions = list_pages(f"/apps/{app_id}/appStoreVersions?{query}")
+    if not versions and create_if_missing:
+        created = api_request(
+            "/appStoreVersions",
+            method="POST",
+            body={
+                "data": {
+                    "type": "appStoreVersions",
+                    "attributes": {"platform": "IOS", "versionString": MARKETING_VERSION},
+                    "relationships": {"app": {"data": {"type": "apps", "id": app_id}}},
+                }
+            },
+        )
+        print(f"Created App Store version {MARKETING_VERSION}.")
+        return created["data"]
     if len(versions) != 1:
         raise RuntimeError(f"Expected one iOS App Store version {MARKETING_VERSION}; found {len(versions)}")
     return versions[0]
+
+
+def ensure_release_notes(app_store_version_id: str) -> None:
+    localizations = list_pages(f"/appStoreVersions/{app_store_version_id}/appStoreVersionLocalizations?limit=200")
+    locale = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
+    if not locale:
+        raise RuntimeError(f"No pt-BR App Store localization exists for version {MARKETING_VERSION}")
+    if locale.get("attributes", {}).get("whatsNew"):
+        print("App Store release notes are already present for pt-BR.")
+        return
+    api_request(
+        f"/appStoreVersionLocalizations/{locale['id']}",
+        method="PATCH",
+        body={
+            "data": {
+                "type": "appStoreVersionLocalizations",
+                "id": locale["id"],
+                "attributes": {"whatsNew": RELEASE_NOTES_PT_BR},
+            }
+        },
+    )
+    print(f"Added pt-BR release notes for version {MARKETING_VERSION}.")
 
 
 def prepare_screenshots(artifact_dir: Path, output_name: str, size: tuple[int, int]) -> list[Path]:
@@ -518,12 +562,12 @@ def submit_for_review(app_id: str, version_id: str) -> dict:
 
 
 def main() -> None:
-    app = app_record()
-    version = app_store_version(app["id"])
-    version_state = version.get("attributes", {}).get("appStoreState", "UNKNOWN")
     operation = os.environ.get("ASC_ACTION", "submit").strip().lower()
     if operation not in {"inspect", "submit"}:
         raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
+    app = app_record()
+    version = app_store_version(app["id"], create_if_missing=operation == "submit")
+    version_state = version.get("attributes", {}).get("appStoreState", "UNKNOWN")
     if operation == "submit" and version_state not in {
         "REJECTED",
         "PREPARE_FOR_SUBMISSION",
@@ -563,6 +607,7 @@ def main() -> None:
         return
 
     resolve_previous_review_issues(app["id"], version["id"])
+    ensure_release_notes(version["id"])
     uploaded_count = upload_store_screenshots(version["id"])
     print(f"Uploaded {uploaded_count} App Store screenshots for pt-BR.")
 

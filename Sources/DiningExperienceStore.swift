@@ -44,6 +44,17 @@ final class DiningExperienceStore: ObservableObject {
         routes.first { $0.id == id }
     }
 
+    @discardableResult
+    func renameRoute(_ routeID: String, to name: String) -> Bool {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty, let index = routes.firstIndex(where: { $0.id == routeID }) else { return false }
+        var updatedRoutes = routes
+        updatedRoutes[index].name = cleanName
+        routes = updatedRoutes
+        saveRoutes()
+        return true
+    }
+
     func deleteRoute(_ routeID: String) {
         routes.removeAll { $0.id == routeID }
         saveRoutes()
@@ -115,6 +126,15 @@ final class DiningExperienceStore: ObservableObject {
 
     func visits(for restaurantID: String) -> [DiningVisit] {
         visits.filter { $0.restaurantID == restaurantID }.sorted { $0.visitedAt > $1.visitedAt }
+    }
+
+    /// Restaurant IDs with at least one visit, most recently visited first.
+    var visitedRestaurantIDs: [String] {
+        var latest: [String: Date] = [:]
+        for visit in visits where visit.visitedAt > (latest[visit.restaurantID] ?? .distantPast) {
+            latest[visit.restaurantID] = visit.visitedAt
+        }
+        return latest.sorted { $0.value > $1.value }.map(\.key)
     }
 
     private func saveRoutes() {

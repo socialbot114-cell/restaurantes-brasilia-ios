@@ -31,6 +31,27 @@ final class DiningExperienceStoreTests: XCTestCase {
         XCTAssertNil(DiningExperienceStore(defaults: makeDefaults()).createRoute(name: " \n "))
     }
 
+    func testRoutesCanBeRenamedButNotBlanked() throws {
+        let defaults = makeDefaults()
+        let store = DiningExperienceStore(defaults: defaults)
+        let route = try XCTUnwrap(store.createRoute(name: "Sábado"))
+
+        XCTAssertTrue(store.renameRoute(route.id, to: "  Domingo no Lago  "))
+        XCTAssertFalse(store.renameRoute(route.id, to: "   "))
+        XCTAssertFalse(store.renameRoute("missing", to: "Outro"))
+        XCTAssertEqual(DiningExperienceStore(defaults: defaults).route(withID: route.id)?.name, "Domingo no Lago")
+    }
+
+    func testVisitedRestaurantsAreOrderedByLatestVisit() {
+        let store = DiningExperienceStore(defaults: makeDefaults())
+        let now = Date()
+        store.recordVisit(restaurantID: "a", visitedAt: now.addingTimeInterval(-300), personalRating: 4, note: "")
+        store.recordVisit(restaurantID: "b", visitedAt: now.addingTimeInterval(-200), personalRating: 3, note: "")
+        store.recordVisit(restaurantID: "a", visitedAt: now, personalRating: 5, note: "")
+
+        XCTAssertEqual(store.visitedRestaurantIDs, ["a", "b"])
+    }
+
     private func makeDefaults() -> UserDefaults {
         let suite = "DiningExperienceStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

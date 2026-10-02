@@ -43,6 +43,16 @@ struct Restaurant: Codable, Identifiable, Hashable {
         let priorWeight = 20.0
         return (rating * reviews + prior * priorWeight) / (reviews + priorWeight)
     }
+    var shareText: String {
+        var lines = ["\(name) — \(displayCategory) · \(displayNeighborhood)"]
+        if let address = address?.nilIfEmpty { lines.append(address) }
+        if let phone = phone?.nilIfEmpty { lines.append("Tel.: \(phone)") }
+        if hasRating, let rating {
+            lines.append("Nota \(String(format: "%.1f", rating).replacingOccurrences(of: ".", with: ",")) no Duo Gourmet")
+        }
+        lines.append("Encontrado no app Restaurantes Brasília")
+        return lines.joined(separator: "\n")
+    }
     var searchableText: String {
         [name, displayCategory, displayNeighborhood, address ?? ""].joined(separator: " ").folding(options: .diacriticInsensitive, locale: .current).lowercased()
     }

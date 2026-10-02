@@ -30,6 +30,7 @@ private struct HomeView: View {
     @ObservedObject var dining: DiningExperienceStore
     @State private var query = ""
     @State private var selectedCategory: String?
+    @State private var surprise: Restaurant?
 
     private struct Intent: Identifiable {
         let label: String
@@ -76,6 +77,9 @@ private struct HomeView: View {
             }
             .background(Theme.canvas)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(item: $surprise) { restaurant in
+                RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining)
+            }
         }
     }
 
@@ -140,6 +144,7 @@ private struct HomeView: View {
             }
 
             if !catalog.topRated.isEmpty {
+                surpriseButton
                 collection(title: "Boas apostas", subtitle: "Nota e avaliações equilibradas", items: Array(catalog.topRated.prefix(8)))
             }
             if !catalog.mostReviewed.isEmpty {
@@ -148,6 +153,31 @@ private struct HomeView: View {
 
             cuisineGrid
         }
+    }
+
+    private var surpriseButton: some View {
+        Button {
+            surprise = catalog.topRated.prefix(60).randomElement()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Theme.ipe.opacity(0.22)).frame(width: 48, height: 48)
+                    Image(systemName: "dice.fill").font(.system(size: 22)).foregroundStyle(Theme.ipe)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Surpreenda-me").font(.headline).foregroundStyle(.white)
+                    Text("Sorteamos um lugar bem avaliado para você")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").foregroundStyle(.white.opacity(0.7))
+            }
+            .padding(16)
+            .background(Theme.forest, in: RoundedRectangle(cornerRadius: 20))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("surprise-me")
     }
 
     private func intentChip(_ intent: Intent) -> some View {
@@ -338,41 +368,114 @@ private struct ExploreView: View {
 
 // MARK: - Favorites
 
+private enum SavedSection: String, CaseIterable, Identifiable {
+    case favorites = "Favoritos"
+    case visited = "Visitados"
+    var id: String { rawValue }
+}
+
 private struct FavoritesView: View {
     @ObservedObject var catalog: RestaurantCatalog
     @ObservedObject var favorites: FavoritesStore
     @ObservedObject var dining: DiningExperienceStore
+    @State private var section: SavedSection = .favorites
 
     var body: some View {
         NavigationStack {
-            Group {
-                let saved = catalog.restaurants.filter { favorites.contains($0.id) }
-                if saved.isEmpty {
-                    ContentUnavailableView {
-                        Label("Nada salvo ainda", systemImage: "heart")
-                    } description: {
-                        Text("Toque no coração de um restaurante para guardá-lo aqui.")
-                    }
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(saved) { restaurant in
-                                HStack(spacing: 10) {
-                                    NavigationLink { RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining) } label: {
-                                        RestaurantCard(restaurant: restaurant, showFavorite: false)
-                                    }
-                                    .buttonStyle(.plain)
-                                    FavoriteButton(restaurant: restaurant, favorites: favorites)
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                        .padding(.bottom, 24)
+            VStack(spacing: 0) {
+                Picker("Mostrar", selection: $section) {
+                    ForEach(SavedSection.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .accessibilityIdentifier("saved-section")
+
+                Group {
+                    switch section {
+                    case .favorites: favoritesList
+                    case .visited: visitedList
                     }
                 }
+                .frame(maxHeight: .infinity)
             }
             .background(Theme.canvas)
             .navigationTitle("Salvos")
+        }
+    }
+
+    @ViewBuilder
+    private var favoritesList: some View {
+        let saved = catalog.restaurants
+            .filter { favorites.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        if saved.isEmpty {
+            ContentUnavailableView {
+                Label("Nada salvo ainda", systemImage: "heart")
+            } description: {
+                Text("Toque no coração de um restaurante para guardá-lo aqui.")
+            }
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(saved) { restaurant in
+                        HStack(spacing: 10) {
+                            NavigationLink { RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining) } label: {
+                                RestaurantCard(restaurant: restaurant, showFavorite: false)
+                            }
+                            .buttonStyle(.plain)
+                            FavoriteButton(restaurant: restaurant, favorites: favorites)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 24)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var visitedList: some View {
+        let visited = dining.visitedRestaurantIDs.compactMap { catalog.restaurant(withID: $0) }
+        if visited.isEmpty {
+            ContentUnavailableView {
+                Label("Nenhuma visita registrada", systemImage: "book.closed")
+            } description: {
+                Text("Use “Registrar visita” na ficha de um restaurante para montar seu diário.")
+            }
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(visited) { restaurant in
+                        NavigationLink { RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining) } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                RestaurantCard(restaurant: restaurant, showFavorite: false)
+                                visitSummary(dining.visits(for: restaurant.id))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("visited-\(restaurant.id)")
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 24)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func visitSummary(_ visits: [DiningVisit]) -> some View {
+        if let last = visits.first {
+            HStack(spacing: 6) {
+                Image(systemName: "book.closed")
+                Text("Última visita em \(last.visitedAt.formatted(date: .abbreviated, time: .omitted))")
+                Spacer(minLength: 0)
+                Label("\(last.personalRating)/5", systemImage: "star.fill").foregroundStyle(Theme.ipe)
+                Text("· \(visits.count) visita\(visits.count == 1 ? "" : "s")")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 14)
         }
     }
 }
@@ -450,6 +553,7 @@ private struct DiningRouteDetailView: View {
     @ObservedObject var dining: DiningExperienceStore
     @Environment(\.dismiss) private var dismiss
     @State private var isAddingRestaurants = false
+    @State private var isRenaming = false
     @State private var isConfirmingDelete = false
 
     private var route: DiningRoute? { dining.route(withID: routeID) }
@@ -463,7 +567,7 @@ private struct DiningRouteDetailView: View {
                     List {
                         Section {
                             ForEach(route.restaurantIDs, id: \.self) { restaurantID in
-                                if let restaurant = catalog.restaurants.first(where: { $0.id == restaurantID }) {
+                                if let restaurant = catalog.restaurant(withID: restaurantID) {
                                     HStack(spacing: 10) {
                                         NavigationLink {
                                             RestaurantDetailView(restaurant: restaurant, favorites: favorites, dining: dining)
@@ -506,6 +610,9 @@ private struct DiningRouteDetailView: View {
                 }
                 .accessibilityIdentifier("add-restaurants")
                 Menu {
+                    Button { isRenaming = true } label: {
+                        Label("Renomear roteiro", systemImage: "pencil")
+                    }
                     Button("Excluir roteiro", role: .destructive) { isConfirmingDelete = true }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -515,6 +622,11 @@ private struct DiningRouteDetailView: View {
         .sheet(isPresented: $isAddingRestaurants) {
             if let route {
                 AddRestaurantsSheet(catalog: catalog, dining: dining, routeID: route.id)
+            }
+        }
+        .sheet(isPresented: $isRenaming) {
+            RouteNameSheet(title: "Renomear roteiro", actionTitle: "Salvar", initialName: route?.name ?? "") { name in
+                dining.renameRoute(routeID, to: name)
             }
         }
         .confirmationDialog("Excluir este roteiro?", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
@@ -591,6 +703,7 @@ private struct AddRestaurantsSheet: View {
 private struct RouteNameSheet: View {
     let title: String
     let actionTitle: String
+    var initialName = ""
     let onSave: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -620,6 +733,7 @@ private struct RouteNameSheet: View {
             }
         }
         .presentationDetents([.medium])
+        .onAppear { if name.isEmpty { name = initialName } }
     }
 }
 
@@ -669,11 +783,16 @@ private struct RestaurantDetailView: View {
         .navigationTitle(restaurant.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                ShareLink(item: restaurant.shareText, subject: Text(restaurant.name)) {
+                    Label("Compartilhar", systemImage: "square.and.arrow.up")
+                }
+                .accessibilityIdentifier("share-restaurant")
                 Button { favorites.toggle(restaurant.id) } label: {
                     Image(systemName: favorites.contains(restaurant.id) ? "heart.fill" : "heart")
                         .foregroundStyle(Theme.terracotta)
                 }
+                .accessibilityLabel(favorites.contains(restaurant.id) ? "Remover dos salvos" : "Salvar restaurante")
             }
         }
         .sheet(isPresented: $isShowingVisitEditor) {

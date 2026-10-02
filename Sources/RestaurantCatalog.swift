@@ -19,6 +19,7 @@ final class RestaurantCatalog: ObservableObject {
     @Published var query = ""
     @Published var neighborhood = "Todos"
     @Published var category = "Todos"
+    private var restaurantsByID: [String: Restaurant] = [:]
 
     init(bundle: Bundle = .main) {
         load(bundle: bundle)
@@ -26,6 +27,10 @@ final class RestaurantCatalog: ObservableObject {
 
     init(data: Data) {
         load(data: data)
+    }
+
+    func restaurant(withID id: String) -> Restaurant? {
+        restaurantsByID[id]
     }
 
     var neighborhoods: [String] {
@@ -86,6 +91,7 @@ final class RestaurantCatalog: ObservableObject {
             return
         }
         restaurants = decoded
+        restaurantsByID = Dictionary(decoded.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         loadState = .loaded
     }
 }

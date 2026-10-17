@@ -144,8 +144,10 @@ def run_validation(manifest_path: Path, release: bool = False) -> int:
 def audit(manifest_path: Path) -> int:
     manifest, base = load_manifest(manifest_path)
     findings = []
-    for error in validate_manifest(manifest, base) + validate_catalog(manifest, base) + scan_secrets(base):
-        severity = "blocker" if any(word in error for word in ("secret", "bundle_id", "Privacy Manifest")) else "error"
+    for error in validate_manifest(manifest, base) + validate_catalog(manifest, base, release=True) + scan_secrets(base):
+        severity = "blocker" if any(
+            word in error for word in ("secret", "bundle_id", "Privacy Manifest", "photo assets without")
+        ) else "error"
         findings.append({"severity": severity, "message": error})
     report_dir = base / "reports" / "jerv"
     report_dir.mkdir(parents=True, exist_ok=True)

@@ -54,6 +54,9 @@ struct Restaurant: Codable, Identifiable, Hashable {
         if hasRating, let formattedRating {
             lines.append("Nota \(formattedRating) no Duo Gourmet")
         }
+        if let normalizedWebsiteURL {
+            lines.append(normalizedWebsiteURL.absoluteString)
+        }
         lines.append("Encontrado no app Restaurantes Brasília")
         return lines.joined(separator: "\n")
     }

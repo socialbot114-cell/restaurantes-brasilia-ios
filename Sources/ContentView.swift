@@ -921,6 +921,15 @@ private struct RestaurantDetailView: View {
             if let address = restaurant.address, !address.isEmpty {
                 copyButton(value: address, title: "Copiar endereço", copiedTitle: "Endereço copiado", symbol: "mappin")
             }
+            if let pageURL = restaurant.normalizedWebsiteURL {
+                Link(destination: pageURL) {
+                    Label("Ver ficha online", systemImage: "safari")
+                        .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 6)
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.forest)
+                .accessibilityIdentifier("open-restaurant-page")
+            }
         }
     }
 
@@ -1117,6 +1126,7 @@ private struct RestaurantMapSheet: View {
         )
     )
     @State private var pins: [RestaurantMapPin] = []
+    @State private var mapItem: MKMapItem?
     @State private var mapMessage = "Buscando o local no mapa…"
 
     var body: some View {
@@ -1132,7 +1142,20 @@ private struct RestaurantMapSheet: View {
                     if let address = restaurant.address, !address.isEmpty {
                         Text(address).font(.caption).foregroundStyle(.secondary)
                     }
-                    if pins.isEmpty { Text(mapMessage).font(.caption).foregroundStyle(.secondary) }
+                    Text(mapMessage).font(.caption).foregroundStyle(.secondary)
+                    if mapItem != nil {
+                        Button {
+                            mapItem?.openInMaps(launchOptions: [
+                                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+                            ])
+                        } label: {
+                            Label("Traçar rota no Mapas", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.forest)
+                        .accessibilityIdentifier("open-in-maps")
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
@@ -1162,9 +1185,10 @@ private struct RestaurantMapSheet: View {
             return
         }
         let coordinate = item.placemark.coordinate
+        mapItem = item
         pins = [RestaurantMapPin(id: restaurant.id, title: item.name ?? restaurant.name, coordinate: coordinate)]
         cameraPosition = .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 1400, longitudinalMeters: 1400))
-        mapMessage = "Local aproximado"
+        mapMessage = "Local aproximado; confirme antes de traçar a rota."
     }
 }
 

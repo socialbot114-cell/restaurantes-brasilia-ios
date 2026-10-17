@@ -98,6 +98,12 @@ final class RestaurantDomainTests: XCTestCase {
         )
     }
 
+    func testShareTextIncludesRestaurantPageWhenAvailable() {
+        let restaurant = Restaurant(id: "one", name: "Casa do Pequi", category: nil, neighborhood: nil, address: nil, phone: nil, website: "https://example.com/restaurante", rating: nil, reviewCount: nil, source: "test", sourceURL: nil, lastVerified: "2026-01-01", dataStatus: "verified")
+
+        XCTAssertTrue(restaurant.shareText.contains("https://example.com/restaurante"))
+    }
+
     func testRatingUsesBrazilianDecimalComma() {
         let rated = Restaurant(id: "r", name: "A", category: nil, neighborhood: nil, address: nil, phone: nil, website: nil, rating: 4.6, reviewCount: 3, source: "t", sourceURL: nil, lastVerified: "", dataStatus: "verified")
         XCTAssertEqual(rated.formattedRating, "4,6")

@@ -240,27 +240,49 @@ def app_store_localization_for(app_id: str, app_store_version_id: str, create_if
     return created["data"]
 
 
-def app_info_localizations_for(app_id: str, locale_code: str) -> list[dict]:
+def app_info_localizations_for(
+    app_id: str,
+    locale_code: str,
+    preferred_state: str | None = None,
+) -> list[dict]:
     app_infos = api_request(f"/apps/{app_id}/relationships/appInfos?limit=200").get("data", [])
-    matches = []
+    matches: list[tuple[dict, str | None, str | None]] = []
     for app_info in app_infos:
         query = urlencode({"fields[appInfos]": "appStoreState,state"})
         app_info_record = api_request(f"/appInfos/{app_info['id']}?{query}").get("data", {})
         app_info_attributes = app_info_record.get("attributes", {})
+        state = app_info_attributes.get("state")
+        app_store_state = app_info_attributes.get("appStoreState")
         localizations = list_pages(f"/appInfos/{app_info['id']}/appInfoLocalizations?limit=200")
         for item in localizations:
             if item.get("attributes", {}).get("locale") != locale_code:
                 continue
             print(
                 f"{locale_code} App Info localization {item.get('id')} "
-                f"(appInfo={app_info['id']}, state={app_info_attributes.get('state')}, "
-                f"appStoreState={app_info_attributes.get('appStoreState')}, "
-                f"privacyPolicyUrl={item.get('attributes', {}).get('privacyPolicyUrl') or '(empty)'})"
+                f"(appInfo={app_info['id']}, state={state}, appStoreState={app_store_state})"
             )
-            matches.append(item)
+            matches.append((item, state, app_store_state))
     if not matches:
         raise RuntimeError(f"Expected at least one {locale_code} App Info localization; found none")
-    return matches
+    if preferred_state:
+        preferred = [
+            item
+            for item, state, app_store_state in matches
+            if preferred_state in {state, app_store_state}
+        ]
+        if preferred:
+            return preferred
+        states = ", ".join(
+            f"{state or 'UNKNOWN'}/{app_store_state or 'UNKNOWN'}"
+            for _, state, app_store_state in matches
+        )
+        raise RuntimeError(
+            f"No {locale_code} App Info localization matches target state {preferred_state}; "
+            f"found {states}"
+        )
+    if len(matches) != 1:
+        raise RuntimeError(f"Expected one {locale_code} App Info localization; found {len(matches)}")
+    return [matches[0][0]]
 
 
 def ensure_store_metadata(app_id: str, app_store_version_id: str) -> None:
@@ -301,7 +323,11 @@ def ensure_store_metadata(app_id: str, app_store_version_id: str) -> None:
         )
         print("Updated pt-BR support URL and release notes.")
 
-    app_info_locales = app_info_localizations_for(app_id, "pt-BR")
+    app_info_locales = app_info_localizations_for(
+        app_id,
+        "pt-BR",
+        preferred_state=version_attributes.get("appStoreState"),
+    )
     updated = 0
     for app_info_locale in app_info_locales:
         if app_info_locale.get("attributes", {}).get("privacyPolicyUrl") == PRIVACY_POLICY_URL:
@@ -635,6 +661,8 @@ def review_submission_summary(app_id: str) -> list[str]:
 def review_readiness_summary(app_id: str, version_id: str) -> tuple[list[str], list[str]]:
     summary = []
     missing_fields = []
+    version = api_request(f"/appStoreVersions/{version_id}").get("data", {})
+    version_attributes = version.get("attributes", {})
     try:
         detail = api_request(f"/appStoreVersions/{version_id}/appStoreReviewDetail").get("data", {}).get("attributes", {})
         required_fields = ("contactFirstName", "contactLastName", "contactEmail", "contactPhone", "notes")
@@ -660,20 +688,28 @@ def review_readiness_summary(app_id: str, version_id: str) -> tuple[list[str], l
             summary.append("pt-BR release notes (What's New) are blank; required for App Store updates")
             missing_fields.append("pt-BR release notes")
 
-    version = api_request(f"/appStoreVersions/{version_id}").get("data", {})
-    if not version.get("attributes", {}).get("copyright"):
+    if not version_attributes.get("copyright"):
         summary.append("App Store copyright is missing for the target version")
         missing_fields.append("App Store copyright")
 
     try:
-        app_info_locales = app_info_localizations_for(app_id, "pt-BR")
+        app_info_locales = app_info_localizations_for(
+            app_id,
+            "pt-BR",
+            preferred_state=version_attributes.get("appStoreState"),
+        )
         missing = [
             item for item in app_info_locales
-            if not item.get("attributes", {}).get("privacyPolicyUrl")
+            if (
+                item.get("attributes", {}).get("privacyPolicyUrl") != PRIVACY_POLICY_URL
+                if PRIVACY_POLICY_URL
+                else not item.get("attributes", {}).get("privacyPolicyUrl")
+            )
         ]
         if missing:
             summary.append(
-                f"pt-BR privacy policy URL is missing from {len(missing)} App Info localization(s)"
+                f"pt-BR privacy policy URL is missing or incorrect in {len(missing)} "
+                "target App Info localization(s)"
             )
             missing_fields.append("pt-BR privacy policy URL")
     except RuntimeError as error:

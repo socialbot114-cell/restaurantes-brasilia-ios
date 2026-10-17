@@ -1230,7 +1230,7 @@ private struct RestaurantCard: View {
         HStack(spacing: 14) {
             RestaurantArtwork(restaurant: restaurant, size: 60)
             VStack(alignment: .leading, spacing: 4) {
-                Text(restaurant.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                Text(restaurant.name).font(.headline).foregroundStyle(.primary).lineLimit(2)
                 HStack(spacing: 6) {
                     Text(restaurant.displayCategory).font(.caption).foregroundStyle(style.tint)
                     Text("·").foregroundStyle(.secondary)
@@ -1269,7 +1269,7 @@ private struct HeroCard: View {
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(restaurant.name).font(.subheadline.weight(.bold)).foregroundStyle(.primary).lineLimit(1)
+                Text(restaurant.name).font(.subheadline.weight(.bold)).foregroundStyle(.primary).lineLimit(2)
                 Text(restaurant.displayNeighborhood).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if restaurant.hasRating {
                     HStack(spacing: 4) {

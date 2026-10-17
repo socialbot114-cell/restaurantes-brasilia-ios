@@ -7,18 +7,22 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import jwt
+import yaml
 
 
 API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 REPOSITORY_OWNER = "socialbot114-cell"
 REPOSITORY_NAME = "restaurantes-brasilia-ios"
-MARKETING_VERSION = "1.1.0"
-BUILD_NUMBER = "6"
+LIVE_MARKETING_VERSION = "1.1.0"
+LIVE_BUILD_NUMBER = "6"
+MARKETING_VERSION = os.environ.get("ASC_MARKETING_VERSION", "").strip()
+BUILD_NUMBER = os.environ.get("ASC_BUILD_NUMBER", "").strip()
 
 
 def make_token() -> str:
@@ -140,6 +144,30 @@ def write_summary(text: str) -> None:
             summary.write(text + "\n")
 
 
+def validate_build_target() -> None:
+    if not MARKETING_VERSION or not BUILD_NUMBER:
+        raise RuntimeError("Set ASC_MARKETING_VERSION and ASC_BUILD_NUMBER to the next release target")
+    if MARKETING_VERSION == LIVE_MARKETING_VERSION or BUILD_NUMBER == LIVE_BUILD_NUMBER:
+        raise RuntimeError(
+            f"Version/build {LIVE_MARKETING_VERSION} ({LIVE_BUILD_NUMBER}) is already live; "
+            "configure a new version and build before starting Xcode Cloud"
+        )
+    project_path = Path(__file__).resolve().parents[1] / "project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8")) or {}
+    settings = project.get("targets", {}).get("RestaurantesBrasilia", {}).get("settings", {}).get("base", {})
+    configured_version = str(settings.get("MARKETING_VERSION", ""))
+    configured_build = str(settings.get("CURRENT_PROJECT_VERSION", ""))
+    if (configured_version, configured_build) != (MARKETING_VERSION, BUILD_NUMBER):
+        raise RuntimeError(
+            f"project.yml is configured for {configured_version} ({configured_build}), "
+            f"but Xcode Cloud was asked to build {MARKETING_VERSION} ({BUILD_NUMBER})"
+        )
+    from jerv_cli import run_validation
+
+    if run_validation(project_path.parent / "app.yml", release=True) != 0:
+        raise RuntimeError("JERV release-check failed; resolve its catalog and release blockers before building")
+
+
 def find_distribution_build(run_id: str, timeout_minutes: int) -> dict:
     deadline = time.monotonic() + timeout_minutes * 60
     while time.monotonic() < deadline:
@@ -172,6 +200,7 @@ def find_distribution_build(run_id: str, timeout_minutes: int) -> dict:
 
 
 def main() -> None:
+    validate_build_target()
     bundle_query = "filter[bundleId]=" + BUNDLE_ID + "&limit=200"
     apps = list_pages(f"/apps?{bundle_query}")
     if len(apps) != 1:

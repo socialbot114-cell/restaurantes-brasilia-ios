@@ -41,6 +41,7 @@ jobs:
             -project RestaurantesBrasilia.xcodeproj \
             -scheme RestaurantesBrasilia \
             -destination 'platform=iOS Simulator,name=${{ matrix.device.name }},OS=${{ matrix.device.os }}' \
+            -parallel-testing-enabled NO \
             -resultBundlePath "$RUNNER_TEMP/restaurantes-${{ matrix.device.slug }}.xcresult" \
             -only-testing:RestaurantesBrasiliaUITests \
             CODE_SIGNING_ALLOWED=NO

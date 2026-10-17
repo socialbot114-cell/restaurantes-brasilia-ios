@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Attach the processed production build and submit App Store version 1.1.0."""
+"""Attach a configured production build and submit its App Store version."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import jwt
@@ -20,16 +20,14 @@ from PIL import Image, ImageOps
 API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
-MARKETING_VERSION = "1.1.0"
-BUILD_NUMBER = "6"
-RELEASE_NOTES_PT_BR = (
-    "Novidades da versão 1.1.0:\n"
-    "• Surpreenda-me: sorteie um restaurante bem avaliado para conhecer hoje.\n"
-    "• Nova aba Visitados em Salvos, com a última visita e sua nota pessoal.\n"
-    "• Compartilhe a ficha de um restaurante com amigos.\n"
-    "• Renomeie seus roteiros.\n"
-    "• Filtro de regiões revisado, sem bairros duplicados."
-)
+LIVE_MARKETING_VERSION = "1.1.0"
+LIVE_BUILD_NUMBER = "6"
+MARKETING_VERSION = (os.environ.get("ASC_MARKETING_VERSION") or LIVE_MARKETING_VERSION).strip()
+BUILD_NUMBER = (os.environ.get("ASC_BUILD_NUMBER") or LIVE_BUILD_NUMBER).strip()
+RELEASE_NOTES_PT_BR = os.environ.get("ASC_RELEASE_NOTES_PT_BR", "").strip()
+SUPPORT_URL = os.environ.get("ASC_SUPPORT_URL", "").strip()
+PRIVACY_POLICY_URL = os.environ.get("ASC_PRIVACY_POLICY_URL", "").strip()
+COPYRIGHT = os.environ.get("ASC_COPYRIGHT", "").strip()
 IPHONE_SCREENSHOT_SIZE = (1242, 2688)
 IPAD_SCREENSHOT_SIZE = (2064, 2752)
 APP_STORE_SCREENSHOTS = (
@@ -115,6 +113,48 @@ def write_summary(text: str) -> None:
             summary_file.write(text + "\n")
 
 
+def validate_submission_configuration() -> None:
+    required_environment = {
+        "ASC_MARKETING_VERSION": MARKETING_VERSION,
+        "ASC_BUILD_NUMBER": BUILD_NUMBER,
+        "ASC_RELEASE_NOTES_PT_BR": RELEASE_NOTES_PT_BR,
+        "ASC_SUPPORT_URL": SUPPORT_URL,
+        "ASC_PRIVACY_POLICY_URL": PRIVACY_POLICY_URL,
+        "ASC_COPYRIGHT": COPYRIGHT,
+    }
+    missing = [name for name, value in required_environment.items() if not value]
+    if missing:
+        raise RuntimeError(f"Missing submit configuration: {', '.join(missing)}")
+    if MARKETING_VERSION == LIVE_MARKETING_VERSION:
+        raise RuntimeError(f"Version {LIVE_MARKETING_VERSION} is already live; configure the next App Store version")
+    if BUILD_NUMBER == LIVE_BUILD_NUMBER:
+        raise RuntimeError(f"Build {LIVE_BUILD_NUMBER} is already live; configure a new build number")
+    for name, value in (("support URL", SUPPORT_URL), ("privacy policy URL", PRIVACY_POLICY_URL)):
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise RuntimeError(f"{name} must be a public HTTP(S) URL")
+
+    try:
+        import yaml
+    except ImportError:
+        raise RuntimeError("PyYAML is required to verify the configured project version/build") from None
+    project_path = Path(__file__).resolve().parents[1] / "project.yml"
+    project = yaml.safe_load(project_path.read_text(encoding="utf-8")) or {}
+    settings = project.get("targets", {}).get("RestaurantesBrasilia", {}).get("settings", {}).get("base", {})
+    configured_version = str(settings.get("MARKETING_VERSION", ""))
+    configured_build = str(settings.get("CURRENT_PROJECT_VERSION", ""))
+    if (configured_version, configured_build) != (MARKETING_VERSION, BUILD_NUMBER):
+        raise RuntimeError(
+            f"project.yml is configured for {configured_version} ({configured_build}), "
+            f"but this submission targets {MARKETING_VERSION} ({BUILD_NUMBER})"
+        )
+
+    from jerv_cli import run_validation
+
+    if run_validation(project_path.parent / "app.yml", release=True) != 0:
+        raise RuntimeError("JERV release-check failed; resolve its catalog and release blockers before submission")
+
+
 def app_record() -> dict:
     query = urlencode({"filter[bundleId]": BUNDLE_ID, "limit": "200"})
     matches = [item for item in list_pages(f"/apps?{query}") if item.get("id") == APP_STORE_ID]
@@ -145,26 +185,128 @@ def app_store_version(app_id: str, create_if_missing: bool = False) -> dict:
     return versions[0]
 
 
-def ensure_release_notes(app_store_version_id: str) -> None:
+def app_store_localization_for(app_id: str, app_store_version_id: str, create_if_missing: bool = False) -> dict:
     localizations = list_pages(f"/appStoreVersions/{app_store_version_id}/appStoreVersionLocalizations?limit=200")
     locale = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
-    if not locale:
-        raise RuntimeError(f"No pt-BR App Store localization exists for version {MARKETING_VERSION}")
-    if locale.get("attributes", {}).get("whatsNew"):
-        print("App Store release notes are already present for pt-BR.")
-        return
-    api_request(
-        f"/appStoreVersionLocalizations/{locale['id']}",
-        method="PATCH",
+    if locale or not create_if_missing:
+        return locale or {}
+
+    query = urlencode({"filter[platform]": "IOS", "limit": "200"})
+    live_versions = [
+        item
+        for item in list_pages(f"/apps/{app_id}/appStoreVersions?{query}")
+        if item.get("id") != app_store_version_id
+        and item.get("attributes", {}).get("appStoreState") == "READY_FOR_SALE"
+    ]
+    if len(live_versions) != 1:
+        raise RuntimeError(f"Expected one currently live iOS version to copy metadata from; found {len(live_versions)}")
+    live_localizations = list_pages(
+        f"/appStoreVersions/{live_versions[0]['id']}/appStoreVersionLocalizations?limit=200"
+    )
+    live_locale = next(
+        (item for item in live_localizations if item.get("attributes", {}).get("locale") == "pt-BR"),
+        None,
+    )
+    if not live_locale:
+        raise RuntimeError("The currently live version has no pt-BR localization to copy")
+    live_attributes = live_locale.get("attributes", {})
+    description = live_attributes.get("description")
+    keywords = live_attributes.get("keywords")
+    if not description or not keywords:
+        raise RuntimeError("The currently live pt-BR description and keywords are required to create the new localization")
+
+    created = api_request(
+        "/appStoreVersionLocalizations",
+        method="POST",
         body={
             "data": {
                 "type": "appStoreVersionLocalizations",
-                "id": locale["id"],
-                "attributes": {"whatsNew": RELEASE_NOTES_PT_BR},
+                "attributes": {
+                    "locale": "pt-BR",
+                    "description": description,
+                    "keywords": keywords,
+                    "supportUrl": SUPPORT_URL,
+                    "whatsNew": RELEASE_NOTES_PT_BR,
+                },
+                "relationships": {
+                    "appStoreVersion": {
+                        "data": {"type": "appStoreVersions", "id": app_store_version_id}
+                    }
+                },
             }
         },
     )
-    print(f"Added pt-BR release notes for version {MARKETING_VERSION}.")
+    print("Created the new pt-BR App Store localization from the live description and keywords.")
+    return created["data"]
+
+
+def app_info_localization_for(app_id: str, locale_code: str) -> dict:
+    app_infos = api_request(f"/apps/{app_id}/relationships/appInfos?limit=200").get("data", [])
+    matches = []
+    for app_info in app_infos:
+        localizations = list_pages(f"/appInfos/{app_info['id']}/appInfoLocalizations?limit=200")
+        matches.extend(
+            item
+            for item in localizations
+            if item.get("attributes", {}).get("locale") == locale_code
+        )
+    if len(matches) != 1:
+        raise RuntimeError(f"Expected one {locale_code} App Info localization; found {len(matches)}")
+    return matches[0]
+
+
+def ensure_store_metadata(app_id: str, app_store_version_id: str) -> None:
+    locale = app_store_localization_for(app_id, app_store_version_id, create_if_missing=True)
+    version = api_request(f"/appStoreVersions/{app_store_version_id}").get("data", {})
+    version_attributes = version.get("attributes", {})
+    if version_attributes.get("copyright") != COPYRIGHT:
+        api_request(
+            f"/appStoreVersions/{app_store_version_id}",
+            method="PATCH",
+            body={
+                "data": {
+                    "type": "appStoreVersions",
+                    "id": app_store_version_id,
+                    "attributes": {"copyright": COPYRIGHT},
+                }
+            },
+        )
+        print("Updated App Store copyright for the target version.")
+
+    locale_attributes = locale.get("attributes", {})
+    version_localization_updates = {}
+    if locale_attributes.get("supportUrl") != SUPPORT_URL:
+        version_localization_updates["supportUrl"] = SUPPORT_URL
+    if locale_attributes.get("whatsNew") != RELEASE_NOTES_PT_BR:
+        version_localization_updates["whatsNew"] = RELEASE_NOTES_PT_BR
+    if version_localization_updates:
+        api_request(
+            f"/appStoreVersionLocalizations/{locale['id']}",
+            method="PATCH",
+            body={
+                "data": {
+                    "type": "appStoreVersionLocalizations",
+                    "id": locale["id"],
+                    "attributes": version_localization_updates,
+                }
+            },
+        )
+        print("Updated pt-BR support URL and release notes.")
+
+    app_info_locale = app_info_localization_for(app_id, "pt-BR")
+    if app_info_locale.get("attributes", {}).get("privacyPolicyUrl") != PRIVACY_POLICY_URL:
+        api_request(
+            f"/appInfoLocalizations/{app_info_locale['id']}",
+            method="PATCH",
+            body={
+                "data": {
+                    "type": "appInfoLocalizations",
+                    "id": app_info_locale["id"],
+                    "attributes": {"privacyPolicyUrl": PRIVACY_POLICY_URL},
+                }
+            },
+        )
+        print("Updated the pt-BR privacy policy URL.")
 
 
 def prepare_screenshots(artifact_dir: Path, output_name: str, size: tuple[int, int]) -> list[Path]:
@@ -477,28 +619,48 @@ def review_submission_summary(app_id: str) -> list[str]:
     return summary
 
 
-def review_readiness_summary(version_id: str) -> list[str]:
+def review_readiness_summary(app_id: str, version_id: str) -> tuple[list[str], list[str]]:
     summary = []
+    missing_fields = []
     try:
         detail = api_request(f"/appStoreVersions/{version_id}/appStoreReviewDetail").get("data", {}).get("attributes", {})
         required_fields = ("contactFirstName", "contactLastName", "contactEmail", "contactPhone", "notes")
         missing = [field for field in required_fields if not detail.get(field)]
         summary.append(f"App Review contact/notes missing fields: {','.join(missing) or 'none'}")
+        missing_fields.extend(f"App Review detail: {field}" for field in missing)
     except RuntimeError as error:
         summary.append(f"App Review detail lookup: {error}")
+        missing_fields.append("App Review detail")
 
     localizations = list_pages(f"/appStoreVersions/{version_id}/appStoreVersionLocalizations?limit=200")
     pt_br = next((item for item in localizations if item.get("attributes", {}).get("locale") == "pt-BR"), None)
     if not pt_br:
         summary.append("pt-BR App Store version localization is missing")
+        missing_fields.append("pt-BR App Store version localization")
     else:
         attributes = pt_br.get("attributes", {})
         required_fields = ("description", "keywords", "supportUrl")
         missing = [field for field in required_fields if not attributes.get(field)]
         summary.append(f"pt-BR App Store localization missing fields: {','.join(missing) or 'none'}")
+        missing_fields.extend(f"pt-BR App Store localization: {field}" for field in missing)
         if not attributes.get("whatsNew"):
             summary.append("pt-BR release notes (What's New) are blank; required for App Store updates")
-    return summary
+            missing_fields.append("pt-BR release notes")
+
+    version = api_request(f"/appStoreVersions/{version_id}").get("data", {})
+    if not version.get("attributes", {}).get("copyright"):
+        summary.append("App Store copyright is missing for the target version")
+        missing_fields.append("App Store copyright")
+
+    try:
+        app_info_locale = app_info_localization_for(app_id, "pt-BR")
+        if not app_info_locale.get("attributes", {}).get("privacyPolicyUrl"):
+            summary.append("pt-BR privacy policy URL is missing")
+            missing_fields.append("pt-BR privacy policy URL")
+    except RuntimeError as error:
+        summary.append(f"App Info privacy policy lookup: {error}")
+        missing_fields.append("pt-BR privacy policy URL")
+    return summary, missing_fields
 
 
 def submit_for_review(app_id: str, version_id: str) -> dict:
@@ -565,6 +727,8 @@ def main() -> None:
     operation = os.environ.get("ASC_ACTION", "submit").strip().lower()
     if operation not in {"inspect", "submit"}:
         raise RuntimeError(f"Unknown operation {operation!r}; use inspect or submit")
+    if operation == "submit":
+        validate_submission_configuration()
     app = app_record()
     version = app_store_version(app["id"], create_if_missing=operation == "submit")
     version_state = version.get("attributes", {}).get("appStoreState", "UNKNOWN")
@@ -591,7 +755,10 @@ def main() -> None:
             print(f"- {submission}")
     else:
         print("No existing App Review submissions found.")
-    for readiness in review_readiness_summary(version["id"]):
+    if operation == "submit":
+        ensure_store_metadata(app["id"], version["id"])
+    readiness_messages, readiness_errors = review_readiness_summary(app["id"], version["id"])
+    for readiness in readiness_messages:
         print(readiness)
 
     if operation == "inspect":
@@ -606,8 +773,10 @@ def main() -> None:
         write_summary(summary)
         return
 
+    if readiness_errors:
+        raise RuntimeError(f"App Store metadata is incomplete: {', '.join(readiness_errors)}")
+
     resolve_previous_review_issues(app["id"], version["id"])
-    ensure_release_notes(version["id"])
     uploaded_count = upload_store_screenshots(version["id"])
     print(f"Uploaded {uploaded_count} App Store screenshots for pt-BR.")
 

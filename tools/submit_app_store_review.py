@@ -20,8 +20,8 @@ from PIL import Image, ImageOps
 API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 APP_STORE_ID = "6813989690"
-LIVE_MARKETING_VERSION = "1.1.0"
-LIVE_BUILD_NUMBER = "6"
+LIVE_MARKETING_VERSION = "1.1.1"
+LIVE_BUILD_NUMBER = "7"
 MARKETING_VERSION = (os.environ.get("ASC_MARKETING_VERSION") or LIVE_MARKETING_VERSION).strip()
 BUILD_NUMBER = (os.environ.get("ASC_BUILD_NUMBER") or LIVE_BUILD_NUMBER).strip()
 RELEASE_NOTES_PT_BR = os.environ.get("ASC_RELEASE_NOTES_PT_BR", "").strip()

@@ -2,7 +2,7 @@
 
 App: **Restaurantes Brasília**
 
-Este kit prepara a versão **1.1.1 (7)**. A versão **1.1.0 (6)** já está `READY_FOR_SALE`.
+Este kit registra a versão **1.1.1 (7)**, enviada à revisão da Apple em **17 de outubro de 2026** e agora `WAITING_FOR_REVIEW`. A versão **1.1.0 (6)** permanece `READY_FOR_SALE` até a aprovação e publicação da nova versão.
 
 ## Informações do App
 
@@ -47,14 +47,22 @@ A ordem acompanha `APP_STORE_SCREENSHOTS` em `tools/submit_app_store_review.py`:
 
 | Ordem | Arquivo | Tela |
 | --- | --- | --- |
-| 1 | `01-home.png` | Início |
-| 2 | `02-verona-busca.png` | Busca por Verona |
-| 3 | `03-detalhe.png` | Ficha do restaurante |
-| 4 | `04-explorar.png` | Explorar |
-| 5 | `05-visitados.png` | Salvos → Visitados |
-| 6 | `06-roteiro-planejado.png` | Roteiro planejado |
+| 1 | `screenshots/iphone/01-restaurantes-home.png` / `screenshots/ipad/01-restaurantes-home.png` | Início |
+| 2 | `screenshots/iphone/02-restaurantes-verona-busca.png` / `screenshots/ipad/02-restaurantes-verona-busca.png` | Busca por Verona |
+| 3 | `screenshots/iphone/03-restaurantes-detalhe.png` / `screenshots/ipad/03-restaurantes-detalhe.png` | Ficha do restaurante |
+| 4 | `screenshots/iphone/04-restaurantes-explore.png` / `screenshots/ipad/04-restaurantes-explore.png` | Explorar |
+| 5 | `screenshots/iphone/05-restaurantes-visitados.png` / `screenshots/ipad/05-restaurantes-visitados.png` | Salvos → Visitados |
+| 6 | `screenshots/iphone/06-restaurantes-roteiro-planejado.png` / `screenshots/ipad/06-restaurantes-roteiro-planejado.png` | Roteiro planejado |
 
-- `iphone/` — 6 imagens, `1206 × 2622 px`.
-- `ipad/` — 6 imagens, `2064 × 2752 px`.
+- `screenshots/iphone/` — 6 imagens, `1206 × 2622 px`.
+- `screenshots/ipad/` — 6 imagens, `2064 × 2752 px`.
 
-Gere novamente as duas famílias de capturas em um único workflow bem-sucedido após compilar a versão 1.1.1 (7). O release mantém a foto Verona autorizada e usa arte nativa por categoria nos outros restaurantes.
+As capturas foram geradas pelo [workflow 39006417677](https://github.com/socialbot114-cell/restaurantes-brasilia-ios/actions/runs/39006417677) e as 12 imagens foram enviadas ao App Store Connect.
+
+## Envio
+
+- Build: `1.1.1 (7)`, válido e anexado à versão.
+- App Review submission: `d06351a8-2e5d-44d5-980a-aedd1130a77b` (`WAITING_FOR_REVIEW`).
+- Workflow de submissão: [39007780041](https://github.com/socialbot114-cell/restaurantes-brasilia-ios/actions/runs/39007780041).
+
+O release mantém a foto Verona autorizada e usa arte nativa por categoria nos outros restaurantes.

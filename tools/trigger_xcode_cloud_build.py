@@ -19,8 +19,8 @@ API_ROOT = "https://api.appstoreconnect.apple.com/v1"
 BUNDLE_ID = "br.com.restaurantes.bsb"
 REPOSITORY_OWNER = "socialbot114-cell"
 REPOSITORY_NAME = "restaurantes-brasilia-ios"
-LIVE_MARKETING_VERSION = "1.1.0"
-LIVE_BUILD_NUMBER = "6"
+LIVE_MARKETING_VERSION = "1.1.1"
+LIVE_BUILD_NUMBER = "7"
 MARKETING_VERSION = os.environ.get("ASC_MARKETING_VERSION", "").strip()
 BUILD_NUMBER = os.environ.get("ASC_BUILD_NUMBER", "").strip()
 

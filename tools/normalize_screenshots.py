@@ -12,7 +12,7 @@ from typing import Any, Iterator
 from PIL import Image, ImageOps
 
 SCREENSHOT_SIZES = {
-    "iphone": (1242, 2688),
+    "iphone": (1206, 2622),
     "ipad": (2064, 2752),
 }
 

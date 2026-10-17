@@ -22,7 +22,7 @@ O release fica bloqueado até a origem e os direitos do catálogo serem revisado
 
 ## Revisão visual de imagens
 
-Os prints são normalizados para **1242 × 2688 px (iPhone)** e **2064 × 2752 px (iPad)** conforme `SCREENSHOT_REQUIREMENTS.md`.
+Os prints são normalizados para **1206 × 2622 px (iPhone 17)** e **2064 × 2752 px (iPad)** conforme `SCREENSHOT_REQUIREMENTS.md`.
 
 O workflow **Restaurantes Brasília photo visual review** compila o app e executa um teste de UI no iPhone 17 e em um simulador de iPad disponível no runner. Ele captura início, busca, arte por categoria, lista Explorar, o detalhe Verona/Tripadvisor (a única foto autorizada) e Favoritos. Também decodifica as fotos autorizadas e gera contact sheets para inspeção visual.
 

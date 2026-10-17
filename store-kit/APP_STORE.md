@@ -54,7 +54,7 @@ A ordem acompanha `APP_STORE_SCREENSHOTS` em `tools/submit_app_store_review.py`:
 | 5 | `05-visitados.png` | Salvos → Visitados |
 | 6 | `06-roteiro-planejado.png` | Roteiro planejado |
 
-- `iphone/` — 6 imagens, `1242 × 2688 px`.
+- `iphone/` — 6 imagens, `1206 × 2622 px`.
 - `ipad/` — 6 imagens, `2064 × 2752 px`.
 
 Gere novamente as duas famílias de capturas em um único workflow bem-sucedido após compilar a versão 1.1.1 (7). O release mantém a foto Verona autorizada e usa arte nativa por categoria nos outros restaurantes.

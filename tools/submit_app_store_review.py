@@ -28,7 +28,7 @@ RELEASE_NOTES_PT_BR = os.environ.get("ASC_RELEASE_NOTES_PT_BR", "").strip()
 SUPPORT_URL = os.environ.get("ASC_SUPPORT_URL", "").strip()
 PRIVACY_POLICY_URL = os.environ.get("ASC_PRIVACY_POLICY_URL", "").strip()
 COPYRIGHT = os.environ.get("ASC_COPYRIGHT", "").strip()
-IPHONE_SCREENSHOT_SIZE = (1242, 2688)
+IPHONE_SCREENSHOT_SIZE = (1206, 2622)
 IPAD_SCREENSHOT_SIZE = (2064, 2752)
 APP_STORE_SCREENSHOTS = (
     "restaurantes-home",
@@ -455,7 +455,7 @@ def upload_store_screenshots(app_store_version_id: str) -> int:
     iphone_dir = Path(os.environ["ASC_SCREENSHOT_IPHONE_DIR"])
     ipad_dir = Path(os.environ["ASC_SCREENSHOT_IPAD_DIR"])
     iphone_count = upload_screenshot_set(
-        locale["id"], iphone_dir, "app-store-iphone-65", "APP_IPHONE_65", IPHONE_SCREENSHOT_SIZE
+        locale["id"], iphone_dir, "app-store-iphone-61", "APP_IPHONE_61", IPHONE_SCREENSHOT_SIZE
     )
     ipad_count = upload_screenshot_set(
         locale["id"], ipad_dir, "app-store-ipad-13", "APP_IPAD_PRO_3GEN_129", IPAD_SCREENSHOT_SIZE
@@ -473,7 +473,7 @@ def inspect_screenshot_sets(app_store_version_id: str) -> None:
     for screenshot_set in sets:
         attributes = screenshot_set.get("attributes", {})
         display_type = attributes.get("screenshotDisplayType")
-        if display_type not in {"APP_IPHONE_67", "APP_IPAD_PRO_3GEN_129"}:
+        if display_type not in {"APP_IPHONE_61", "APP_IPHONE_65", "APP_IPHONE_67", "APP_IPAD_PRO_3GEN_129"}:
             continue
         print(f"Screenshot set {display_type}: {screenshot_set['id']}")
         screenshots = list_pages(f"/appScreenshotSets/{screenshot_set['id']}/appScreenshots?limit=200")

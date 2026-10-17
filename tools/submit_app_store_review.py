@@ -244,12 +244,20 @@ def app_info_localizations_for(app_id: str, locale_code: str) -> list[dict]:
     app_infos = api_request(f"/apps/{app_id}/relationships/appInfos?limit=200").get("data", [])
     matches = []
     for app_info in app_infos:
+        query = urlencode({"fields[appInfos]": "appStoreState,state"})
+        app_info_record = api_request(f"/appInfos/{app_info['id']}?{query}").get("data", {})
+        app_info_attributes = app_info_record.get("attributes", {})
         localizations = list_pages(f"/appInfos/{app_info['id']}/appInfoLocalizations?limit=200")
-        matches.extend(
-            item
-            for item in localizations
-            if item.get("attributes", {}).get("locale") == locale_code
-        )
+        for item in localizations:
+            if item.get("attributes", {}).get("locale") != locale_code:
+                continue
+            print(
+                f"{locale_code} App Info localization {item.get('id')} "
+                f"(appInfo={app_info['id']}, state={app_info_attributes.get('state')}, "
+                f"appStoreState={app_info_attributes.get('appStoreState')}, "
+                f"privacyPolicyUrl={item.get('attributes', {}).get('privacyPolicyUrl') or '(empty)'})"
+            )
+            matches.append(item)
     if not matches:
         raise RuntimeError(f"Expected at least one {locale_code} App Info localization; found none")
     return matches

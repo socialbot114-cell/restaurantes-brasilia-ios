@@ -240,7 +240,7 @@ def app_store_localization_for(app_id: str, app_store_version_id: str, create_if
     return created["data"]
 
 
-def app_info_localization_for(app_id: str, locale_code: str) -> dict:
+def app_info_localizations_for(app_id: str, locale_code: str) -> list[dict]:
     app_infos = api_request(f"/apps/{app_id}/relationships/appInfos?limit=200").get("data", [])
     matches = []
     for app_info in app_infos:
@@ -250,9 +250,9 @@ def app_info_localization_for(app_id: str, locale_code: str) -> dict:
             for item in localizations
             if item.get("attributes", {}).get("locale") == locale_code
         )
-    if len(matches) != 1:
-        raise RuntimeError(f"Expected one {locale_code} App Info localization; found {len(matches)}")
-    return matches[0]
+    if not matches:
+        raise RuntimeError(f"Expected at least one {locale_code} App Info localization; found none")
+    return matches
 
 
 def ensure_store_metadata(app_id: str, app_store_version_id: str) -> None:
@@ -293,8 +293,11 @@ def ensure_store_metadata(app_id: str, app_store_version_id: str) -> None:
         )
         print("Updated pt-BR support URL and release notes.")
 
-    app_info_locale = app_info_localization_for(app_id, "pt-BR")
-    if app_info_locale.get("attributes", {}).get("privacyPolicyUrl") != PRIVACY_POLICY_URL:
+    app_info_locales = app_info_localizations_for(app_id, "pt-BR")
+    updated = 0
+    for app_info_locale in app_info_locales:
+        if app_info_locale.get("attributes", {}).get("privacyPolicyUrl") == PRIVACY_POLICY_URL:
+            continue
         api_request(
             f"/appInfoLocalizations/{app_info_locale['id']}",
             method="PATCH",
@@ -306,7 +309,9 @@ def ensure_store_metadata(app_id: str, app_store_version_id: str) -> None:
                 }
             },
         )
-        print("Updated the pt-BR privacy policy URL.")
+        updated += 1
+    if updated:
+        print(f"Updated the pt-BR privacy policy URL on {updated} App Info localization(s).")
 
 
 def prepare_screenshots(artifact_dir: Path, output_name: str, size: tuple[int, int]) -> list[Path]:
@@ -653,9 +658,15 @@ def review_readiness_summary(app_id: str, version_id: str) -> tuple[list[str], l
         missing_fields.append("App Store copyright")
 
     try:
-        app_info_locale = app_info_localization_for(app_id, "pt-BR")
-        if not app_info_locale.get("attributes", {}).get("privacyPolicyUrl"):
-            summary.append("pt-BR privacy policy URL is missing")
+        app_info_locales = app_info_localizations_for(app_id, "pt-BR")
+        missing = [
+            item for item in app_info_locales
+            if not item.get("attributes", {}).get("privacyPolicyUrl")
+        ]
+        if missing:
+            summary.append(
+                f"pt-BR privacy policy URL is missing from {len(missing)} App Info localization(s)"
+            )
             missing_fields.append("pt-BR privacy policy URL")
     except RuntimeError as error:
         summary.append(f"App Info privacy policy lookup: {error}")

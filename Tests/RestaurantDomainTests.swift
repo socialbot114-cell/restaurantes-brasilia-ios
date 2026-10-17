@@ -19,6 +19,22 @@ final class RestaurantDomainTests: XCTestCase {
         XCTAssertNil(Restaurant.normalizeWebsiteURL("not a website"))
     }
 
+    func testPhoneCallURLRemovesFormattingAndRejectsInvalidNumbers() {
+        let formattedPhone = Restaurant(
+            id: "one", name: "Lugar", category: nil, neighborhood: nil, address: nil,
+            phone: "(61) 99372-4300", website: nil, rating: nil, reviewCount: nil,
+            source: "test", sourceURL: nil, lastVerified: "", dataStatus: "verified"
+        )
+        let invalidPhone = Restaurant(
+            id: "two", name: "Lugar", category: nil, neighborhood: nil, address: nil,
+            phone: "123", website: nil, rating: nil, reviewCount: nil,
+            source: "test", sourceURL: nil, lastVerified: "", dataStatus: "verified"
+        )
+
+        XCTAssertEqual(formattedPhone.phoneCallURL?.absoluteString, "tel:+5561993724300")
+        XCTAssertNil(invalidPhone.phoneCallURL)
+    }
+
     func testPhotoMetadataRoundTripsAndLegacyRecordsStillDecode() throws {
         let withPhoto = Restaurant(
             id: "verona",

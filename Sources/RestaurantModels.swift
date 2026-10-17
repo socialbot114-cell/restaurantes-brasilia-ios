@@ -35,6 +35,20 @@ struct Restaurant: Codable, Identifiable, Hashable {
     var displayCategory: String { category?.nilIfEmpty ?? "Restaurante" }
     var displayNeighborhood: String { neighborhood?.nilIfEmpty ?? "Distrito Federal" }
     var normalizedWebsiteURL: URL? { Self.normalizeWebsiteURL(website) }
+    var phoneCallURL: URL? {
+        guard let phone else { return nil }
+        let digits = phone.filter { "0123456789".contains($0) }
+        let internationalNumber: String
+        switch digits.count {
+        case 10...11:
+            internationalNumber = "+55\(digits)"
+        case 12...13 where digits.hasPrefix("55"):
+            internationalNumber = "+\(digits)"
+        default:
+            return nil
+        }
+        return URL(string: "tel:\(internationalNumber)")
+    }
     var hasRating: Bool { rating != nil && (reviewCount ?? 0) > 0 }
     var qualityScore: Double {
         guard let rating else { return 0 }

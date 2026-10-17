@@ -19,6 +19,17 @@ struct ContentView: View {
                 .tabItem { Label("Salvos", systemImage: "heart") }
         }
         .tint(Theme.forest)
+        .alert(
+            "Dados locais preservados",
+            isPresented: Binding(
+                get: { dining.storageRecoveryNotice != nil },
+                set: { if !$0 { dining.dismissStorageRecoveryNotice() } }
+            )
+        ) {
+            Button("Continuar", role: .cancel) { dining.dismissStorageRecoveryNotice() }
+        } message: {
+            Text(dining.storageRecoveryNotice ?? "")
+        }
     }
 }
 
@@ -97,7 +108,7 @@ private struct HomeView: View {
                     .foregroundStyle(Theme.terracotta)
             }
             Text("Qual é a sua fome hoje?")
-                .font(.system(size: 32, weight: .bold, design: .serif))
+                .font(.system(.largeTitle, design: .serif, weight: .bold))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Um guia para escolher onde comer pelas quadras e regiões do DF.")
@@ -783,7 +794,7 @@ private struct RestaurantDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(restaurant.name).font(.system(size: 28, weight: .bold, design: .serif))
+                    Text(restaurant.name).font(.system(.title, design: .serif, weight: .bold))
                     HStack(spacing: 8) {
                         categoryBadge
                         Text(restaurant.displayNeighborhood).font(.subheadline).foregroundStyle(.secondary)
@@ -916,7 +927,16 @@ private struct RestaurantDetailView: View {
             .accessibilityIdentifier("show-internal-map")
 
             if let phone = restaurant.phone, !phone.isEmpty {
-                copyButton(value: phone, title: "Telefone: \(phone)", copiedTitle: "Telefone copiado", symbol: "phone")
+                if let callURL = restaurant.phoneCallURL {
+                    Link(destination: callURL) {
+                        Label("Ligar", systemImage: "phone.fill")
+                            .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.forest)
+                    .accessibilityHint("Abre o app Telefone para ligar para \(phone)")
+                }
+                copyButton(value: phone, title: "Copiar telefone", copiedTitle: "Telefone copiado", symbol: "phone")
             }
             if let address = restaurant.address, !address.isEmpty {
                 copyButton(value: address, title: "Copiar endereço", copiedTitle: "Endereço copiado", symbol: "mappin")

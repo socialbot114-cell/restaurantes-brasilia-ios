@@ -19,15 +19,54 @@ struct DiningVisit: Codable, Equatable, Identifiable {
 final class DiningExperienceStore: ObservableObject {
     @Published private(set) var routes: [DiningRoute] = []
     @Published private(set) var visits: [DiningVisit] = []
+    @Published private(set) var storageRecoveryNotice: String?
 
     private let defaults: UserDefaults
-    private let routesKey = "br.com.restaurantes.bsb.dining-routes.v1"
-    private let visitsKey = "br.com.restaurantes.bsb.dining-visits.v1"
+    static let routesKey = "br.com.restaurantes.bsb.dining-routes.v1"
+    static let visitsKey = "br.com.restaurantes.bsb.dining-visits.v1"
+    static let routesRecoveryBackupKey = "br.com.restaurantes.bsb.dining-routes.corrupt-backups.v1"
+    static let visitsRecoveryBackupKey = "br.com.restaurantes.bsb.dining-visits.corrupt-backups.v1"
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        routes = Self.decode([DiningRoute].self, from: defaults.data(forKey: routesKey)) ?? []
-        visits = Self.decode([DiningVisit].self, from: defaults.data(forKey: visitsKey)) ?? []
+
+        var affectedSections: [String] = []
+        let routesData = defaults.data(forKey: Self.routesKey)
+        if let decodedRoutes = Self.decode(
+            [DiningRoute].self,
+            from: routesData,
+            preservingInvalidDataIn: defaults,
+            backupKey: Self.routesRecoveryBackupKey
+        ) {
+            routes = decodedRoutes
+        } else {
+            routes = []
+            if routesData != nil { affectedSections.append("roteiros") }
+        }
+
+        let visitsData = defaults.data(forKey: Self.visitsKey)
+        if let decodedVisits = Self.decode(
+            [DiningVisit].self,
+            from: visitsData,
+            preservingInvalidDataIn: defaults,
+            backupKey: Self.visitsRecoveryBackupKey
+        ) {
+            visits = decodedVisits
+        } else {
+            visits = []
+            if visitsData != nil { affectedSections.append("visitas") }
+        }
+
+        if !affectedSections.isEmpty {
+            let sectionNames = affectedSections.count == 2
+                ? "\(affectedSections[0]) e \(affectedSections[1])"
+                : affectedSections[0]
+            storageRecoveryNotice = "O app encontrou dados de \(sectionNames) que não conseguiu ler. Uma cópia original foi preservada; a área afetada será iniciada vazia. Você pode continuar usando o app."
+        }
+    }
+
+    func dismissStorageRecoveryNotice() {
+        storageRecoveryNotice = nil
     }
 
     @discardableResult
@@ -138,15 +177,31 @@ final class DiningExperienceStore: ObservableObject {
     }
 
     private func saveRoutes() {
-        defaults.set(try? JSONEncoder().encode(routes), forKey: routesKey)
+        guard let data = try? JSONEncoder().encode(routes) else { return }
+        defaults.set(data, forKey: Self.routesKey)
     }
 
     private func saveVisits() {
-        defaults.set(try? JSONEncoder().encode(visits), forKey: visitsKey)
+        guard let data = try? JSONEncoder().encode(visits) else { return }
+        defaults.set(data, forKey: Self.visitsKey)
     }
 
-    private static func decode<Value: Decodable>(_ type: Value.Type, from data: Data?) -> Value? {
+    private static func decode<Value: Decodable>(
+        _ type: Value.Type,
+        from data: Data?,
+        preservingInvalidDataIn defaults: UserDefaults,
+        backupKey: String
+    ) -> Value? {
         guard let data else { return nil }
-        return try? JSONDecoder().decode(type, from: data)
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            var backups = defaults.array(forKey: backupKey) as? [Data] ?? []
+            if !backups.contains(data) {
+                backups.append(data)
+                defaults.set(backups, forKey: backupKey)
+            }
+            return nil
+        }
     }
 }

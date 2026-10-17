@@ -76,6 +76,8 @@ def validate_catalog(manifest: dict[str, Any], base: Path, release: bool = False
         return []
     errors: list[str] = []
     unverified = 0
+    unauthorized_photos = 0
+    authorized_photo_statuses = set(catalog.get("authorized_photo_rights_statuses", []))
     try:
         records = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -93,6 +95,8 @@ def validate_catalog(manifest: dict[str, Any], base: Path, release: bool = False
                 fail(f"catalog record {index} missing {field}", errors)
         if release and record.get("data_status") not in (None, "verified"):
             unverified += 1
+        if release and record.get("photo_asset") and record.get("photo_rights_status") not in authorized_photo_statuses:
+            unauthorized_photos += 1
         record_id = str(record.get("id", ""))
         if record_id in ids:
             fail(f"duplicate catalog id: {record_id}", errors)
@@ -101,6 +105,11 @@ def validate_catalog(manifest: dict[str, Any], base: Path, release: bool = False
         fail("catalog must not be empty", errors)
     if unverified:
         fail(f"catalog contains {unverified} records not marked data_status: verified", errors)
+    if unauthorized_photos:
+        fail(
+            f"catalog contains {unauthorized_photos} photo assets without an authorized photo_rights_status",
+            errors,
+        )
     return errors
 
 

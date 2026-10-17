@@ -38,6 +38,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Validate release contract before submission
+        if: ${{ inputs.action == 'submit' }}
+        run: |
+          python -m pip install --disable-pip-version-check PyYAML
+          python tools/jerv_cli.py release-check app.yml
       - uses: actions/download-artifact@v4
         if: ${{ inputs.action == 'submit' }}
         with:

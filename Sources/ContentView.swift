@@ -1269,7 +1269,7 @@ private struct HeroCard: View {
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(restaurant.name).font(.subheadline.weight(.bold)).foregroundStyle(.primary).lineLimit(2)
+                Text(restaurant.name).font(.subheadline.weight(.bold)).foregroundStyle(.primary).lineLimit(3)
                 Text(restaurant.displayNeighborhood).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if restaurant.hasRating {
                     HStack(spacing: 4) {

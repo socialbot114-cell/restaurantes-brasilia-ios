@@ -9,31 +9,31 @@ final class PhotoVisualReviewUITests: XCTestCase {
         capture(app, named: "01-home")
 
         enterSearch("313 Drink Bar", in: app)
-        let duoRow = app.descendants(matching: .any)
+        let catalogRow = app.descendants(matching: .any)
             .matching(identifier: "row-duogourmet-313-drink-bar")
             .firstMatch
-        XCTAssertTrue(duoRow.waitForExistence(timeout: 10))
-        let duoArtwork = app.descendants(matching: .any)
+        XCTAssertTrue(catalogRow.waitForExistence(timeout: 10))
+        let categoryArtwork = app.descendants(matching: .any)
             .matching(identifier: "restaurant-artwork-duogourmet-313-drink-bar")
             .firstMatch
-        XCTAssertTrue(duoArtwork.waitForExistence(timeout: 5), "The search result should expose its restaurant photo.")
+        XCTAssertTrue(categoryArtwork.waitForExistence(timeout: 5), "The search result should expose its category artwork.")
         capture(app, named: "02-home-search-results")
 
         let favorite = app.buttons["Adicionar aos favoritos"].firstMatch
         XCTAssertTrue(favorite.waitForExistence(timeout: 5))
         favorite.tap()
-        duoRow.tap()
+        catalogRow.tap()
 
-        XCTAssertTrue(app.staticTexts["Foto: Duo Gourmet"].waitForExistence(timeout: 10))
-        let duoPhoto = app.descendants(matching: .any)
+        let categoryHero = app.descendants(matching: .any)
             .matching(identifier: "restaurant-photo-duogourmet-313-drink-bar")
             .firstMatch
-        XCTAssertTrue(duoPhoto.waitForExistence(timeout: 5), "The Duo Gourmet photo should appear on the detail screen.")
-        capture(app, named: "03-duo-gourmet-detail")
+        XCTAssertTrue(categoryHero.waitForExistence(timeout: 5), "The detail screen should expose native category artwork.")
+        XCTAssertFalse(app.staticTexts["Foto: Duo Gourmet"].exists)
+        capture(app, named: "03-category-artwork-detail")
 
         tapTab(app, named: "Explorar")
         XCTAssertTrue(app.navigationBars["Explorar"].waitForExistence(timeout: 5))
-        capture(app, named: "04-explore-photo-list")
+        capture(app, named: "04-explore-category-artwork")
 
         enterSearch("Verona", in: app)
         let veronaRow = app.descendants(matching: .any)
@@ -53,7 +53,7 @@ final class PhotoVisualReviewUITests: XCTestCase {
         tapTab(app, named: "Salvos")
         XCTAssertTrue(app.navigationBars["Salvos"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["313 Drink Bar"].waitForExistence(timeout: 5))
-        capture(app, named: "07-favorites-with-photo")
+        capture(app, named: "07-favorites-with-category-artwork")
     }
 
     private func enterSearch(_ query: String, in app: XCUIApplication) {

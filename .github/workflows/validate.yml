@@ -14,6 +14,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install JERV dependencies
         run: python3 -m venv .venv && .venv/bin/pip install --disable-pip-version-check PyYAML
+      - name: Test JERV release checks
+        run: .venv/bin/python -m unittest discover -s tools/tests -p 'test_*.py'
       - name: Validate with JERV
         run: .venv/bin/python tools/jerv_cli.py validate app.yml
       - name: Install XcodeGen

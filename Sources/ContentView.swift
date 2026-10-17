@@ -19,6 +19,17 @@ struct ContentView: View {
                 .tabItem { Label("Salvos", systemImage: "heart") }
         }
         .tint(Theme.forest)
+        .alert(
+            "Dados locais preservados",
+            isPresented: Binding(
+                get: { dining.storageRecoveryNotice != nil },
+                set: { if !$0 { dining.dismissStorageRecoveryNotice() } }
+            )
+        ) {
+            Button("Continuar", role: .cancel) { dining.dismissStorageRecoveryNotice() }
+        } message: {
+            Text(dining.storageRecoveryNotice ?? "")
+        }
     }
 }
 
@@ -97,7 +108,7 @@ private struct HomeView: View {
                     .foregroundStyle(Theme.terracotta)
             }
             Text("Qual é a sua fome hoje?")
-                .font(.system(size: 32, weight: .bold, design: .serif))
+                .font(.system(.largeTitle, design: .serif, weight: .bold))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Um guia para escolher onde comer pelas quadras e regiões do DF.")
@@ -783,7 +794,7 @@ private struct RestaurantDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(restaurant.name).font(.system(size: 28, weight: .bold, design: .serif))
+                    Text(restaurant.name).font(.system(.title, design: .serif, weight: .bold))
                     HStack(spacing: 8) {
                         categoryBadge
                         Text(restaurant.displayNeighborhood).font(.subheadline).foregroundStyle(.secondary)
@@ -916,10 +927,28 @@ private struct RestaurantDetailView: View {
             .accessibilityIdentifier("show-internal-map")
 
             if let phone = restaurant.phone, !phone.isEmpty {
-                copyButton(value: phone, title: "Telefone: \(phone)", copiedTitle: "Telefone copiado", symbol: "phone")
+                if let callURL = restaurant.phoneCallURL {
+                    Link(destination: callURL) {
+                        Label("Ligar", systemImage: "phone.fill")
+                            .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.forest)
+                    .accessibilityHint("Abre o app Telefone para ligar para \(phone)")
+                }
+                copyButton(value: phone, title: "Copiar telefone", copiedTitle: "Telefone copiado", symbol: "phone")
             }
             if let address = restaurant.address, !address.isEmpty {
                 copyButton(value: address, title: "Copiar endereço", copiedTitle: "Endereço copiado", symbol: "mappin")
+            }
+            if let pageURL = restaurant.normalizedWebsiteURL {
+                Link(destination: pageURL) {
+                    Label("Ver ficha online", systemImage: "safari")
+                        .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 6)
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.forest)
+                .accessibilityIdentifier("open-restaurant-page")
             }
         }
     }
@@ -1117,6 +1146,7 @@ private struct RestaurantMapSheet: View {
         )
     )
     @State private var pins: [RestaurantMapPin] = []
+    @State private var mapItem: MKMapItem?
     @State private var mapMessage = "Buscando o local no mapa…"
 
     var body: some View {
@@ -1132,7 +1162,20 @@ private struct RestaurantMapSheet: View {
                     if let address = restaurant.address, !address.isEmpty {
                         Text(address).font(.caption).foregroundStyle(.secondary)
                     }
-                    if pins.isEmpty { Text(mapMessage).font(.caption).foregroundStyle(.secondary) }
+                    Text(mapMessage).font(.caption).foregroundStyle(.secondary)
+                    if mapItem != nil {
+                        Button {
+                            mapItem?.openInMaps(launchOptions: [
+                                MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+                            ])
+                        } label: {
+                            Label("Traçar rota no Mapas", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.forest)
+                        .accessibilityIdentifier("open-in-maps")
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
@@ -1162,9 +1205,10 @@ private struct RestaurantMapSheet: View {
             return
         }
         let coordinate = item.placemark.coordinate
+        mapItem = item
         pins = [RestaurantMapPin(id: restaurant.id, title: item.name ?? restaurant.name, coordinate: coordinate)]
         cameraPosition = .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 1400, longitudinalMeters: 1400))
-        mapMessage = "Local aproximado"
+        mapMessage = "Local aproximado; confirme antes de traçar a rota."
     }
 }
 
@@ -1206,7 +1250,7 @@ private struct RestaurantCard: View {
         HStack(spacing: 14) {
             RestaurantArtwork(restaurant: restaurant, size: 60)
             VStack(alignment: .leading, spacing: 4) {
-                Text(restaurant.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                Text(restaurant.name).font(.headline).foregroundStyle(.primary).lineLimit(2)
                 HStack(spacing: 6) {
                     Text(restaurant.displayCategory).font(.caption).foregroundStyle(style.tint)
                     Text("·").foregroundStyle(.secondary)
@@ -1245,7 +1289,7 @@ private struct HeroCard: View {
                 }
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(restaurant.name).font(.subheadline.weight(.bold)).foregroundStyle(.primary).lineLimit(1)
+                Text(restaurant.name).font(.subheadline.weight(.bold)).foregroundStyle(.primary).lineLimit(3)
                 Text(restaurant.displayNeighborhood).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if restaurant.hasRating {
                     HStack(spacing: 4) {

@@ -40,15 +40,19 @@ def export_screenshots(source_dir: Path, output_dir: Path, device: str) -> list[
 
 def audit_and_load_photos() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     records = json.loads(CATALOG.read_text(encoding="utf-8"))
+    assigned_records = [record for record in records if record.get("photo_asset")]
     photos: list[dict[str, Any]] = []
     issues: list[str] = []
 
-    for index, record in enumerate(records, start=1):
+    for index, record in enumerate(assigned_records, start=1):
         restaurant = record.get("name") or record.get("id") or f"record-{index}"
         required = ("photo_asset", "photo_source_url", "photo_rights_status", "photo_attribution")
         missing = [field for field in required if not record.get(field)]
         if missing:
             issues.append(f"{restaurant}: missing photo metadata: {', '.join(missing)}")
+            continue
+        if record["photo_rights_status"] != "user-confirmed-authorized":
+            issues.append(f"{restaurant}: photo does not have documented redistribution permission")
             continue
 
         imageset = ASSETS / f"{record['photo_asset']}.imageset"
@@ -84,6 +88,7 @@ def audit_and_load_photos() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "catalog_records": len(records),
+        "photo_records": len(assigned_records),
         "photos_decoded": len(photos),
         "attribution_counts": {
             name: sum(photo["attribution"] == name for photo in photos)
@@ -189,11 +194,11 @@ def write_gallery(
 <body>
   <header>
     <h1>Restaurantes Brasília · Photo visual review</h1>
-    <p>{len(screenshots)} simulator screenshots · {report['screenshot_target']['width']} × {report['screenshot_target']['height']} px · {report['photos_decoded']}/{report['catalog_records']} photos decoded · generated {html.escape(report['generated_at'])}</p>
+    <p>{len(screenshots)} simulator screenshots · {report['screenshot_target']['width']} × {report['screenshot_target']['height']} px · {report['photos_decoded']}/{report['photo_records']} authorized photos decoded across {report['catalog_records']} catalog entries · generated {html.escape(report['generated_at'])}</p>
   </header>
   {issue_section}
   <section><h2>App screens</h2><div class="grid">{screenshot_cards}</div></section>
-  <section><h2>Restaurant photo contact sheets</h2><div class="grid sheets">{contact_cards}</div></section>
+  <section><h2>Authorized restaurant photo contact sheets</h2><div class="grid sheets">{contact_cards}</div></section>
 </body>
 </html>
 """
@@ -225,7 +230,8 @@ def main() -> int:
 
     summary = (
         f"## Photo visual review\n\n"
-        f"- Photos decoded: **{report['photos_decoded']}/{report['catalog_records']}**\n"
+        f"- Authorized photos decoded: **{report['photos_decoded']}/{report['photo_records']}**\n"
+        f"- Catalog entries: **{report['catalog_records']}**\n"
         f"- UI screenshots: **{len(screenshots)}**\n"
         f"- Contact sheets: **{len(contact_sheets)}**\n"
         f"- Gallery: `index.html` in the uploaded artifact\n"
@@ -238,8 +244,8 @@ def main() -> int:
         print(summary)
 
     failures = list(report["issues"])
-    if report["photos_decoded"] != report["catalog_records"]:
-        failures.append("Not all catalog photos decoded successfully.")
+    if report["photos_decoded"] != report["photo_records"]:
+        failures.append("Not all catalog photos with authorized provenance decoded successfully.")
     if len(screenshots) < args.minimum_screenshots:
         failures.append(
             f"Expected at least {args.minimum_screenshots} screenshots, got {len(screenshots)}."

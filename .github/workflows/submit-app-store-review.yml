@@ -1,18 +1,42 @@
-name: Restaurantes Brasília submit 1.1.0 for App Review
+name: Restaurantes Brasília submit for App Review
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: Inspect App Store Connect state or submit version 1.1.0 for review
+        description: Inspect App Store Connect state or submit a configured version for review
         required: true
         type: choice
         default: inspect
         options:
           - inspect
           - submit
+      marketing_version:
+        description: New version configured in project.yml (required to submit)
+        required: false
+        type: string
+      build_number:
+        description: New build configured in project.yml (required to submit)
+        required: false
+        type: string
+      support_url:
+        description: Public support URL (required to submit)
+        required: false
+        type: string
+      privacy_policy_url:
+        description: Published privacy policy URL (required to submit)
+        required: false
+        type: string
+      copyright:
+        description: Legal copyright holder (required to submit)
+        required: false
+        type: string
+      release_notes_pt_br:
+        description: Portuguese release notes for the new version (required to submit)
+        required: false
+        type: string
       screenshots_run_id:
-        description: Successful screenshot workflow run with the required iPhone and iPad dimensions
+        description: Successful screenshot workflow run with matching iPhone and iPad captures
         required: false
         type: string
 
@@ -30,14 +54,31 @@ jobs:
         if: ${{ inputs.action == 'submit' }}
         env:
           SCREENSHOTS_RUN_ID: ${{ inputs.screenshots_run_id }}
+          MARKETING_VERSION: ${{ inputs.marketing_version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+          SUPPORT_URL: ${{ inputs.support_url }}
+          PRIVACY_POLICY_URL: ${{ inputs.privacy_policy_url }}
+          COPYRIGHT: ${{ inputs.copyright }}
+          RELEASE_NOTES_PT_BR: ${{ inputs.release_notes_pt_br }}
         run: |
-          if [ -z "$SCREENSHOTS_RUN_ID" ]; then
-            echo "Provide the run ID of a successful screenshots workflow with the required dimensions."
+          missing=()
+          for value_name in SCREENSHOTS_RUN_ID MARKETING_VERSION BUILD_NUMBER SUPPORT_URL PRIVACY_POLICY_URL COPYRIGHT RELEASE_NOTES_PT_BR; do
+            if [ -z "${!value_name}" ]; then
+              missing+=("$value_name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Provide all required submit inputs: ${missing[*]}"
             exit 1
           fi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Validate release contract before submission
+        if: ${{ inputs.action == 'submit' }}
+        run: |
+          python -m pip install --disable-pip-version-check PyYAML
+          python tools/jerv_cli.py release-check app.yml
       - uses: actions/download-artifact@v4
         if: ${{ inputs.action == 'submit' }}
         with:
@@ -56,7 +97,7 @@ jobs:
           path: ${{ runner.temp }}/asc-screenshots-ipad
       - name: Install App Store Connect JWT dependency
         run: python -m pip install --disable-pip-version-check 'PyJWT[crypto]' Pillow
-      - name: Attach build 1.1.0 (6) and submit for App Review
+      - name: Attach the configured build and submit for App Review
         run: python tools/submit_app_store_review.py
         env:
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -64,5 +105,11 @@ jobs:
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           APP_STORE_PROCESSING_TIMEOUT_MINUTES: "60"
           ASC_ACTION: ${{ inputs.action }}
+          ASC_MARKETING_VERSION: ${{ inputs.marketing_version }}
+          ASC_BUILD_NUMBER: ${{ inputs.build_number }}
+          ASC_SUPPORT_URL: ${{ inputs.support_url }}
+          ASC_PRIVACY_POLICY_URL: ${{ inputs.privacy_policy_url }}
+          ASC_COPYRIGHT: ${{ inputs.copyright }}
+          ASC_RELEASE_NOTES_PT_BR: ${{ inputs.release_notes_pt_br }}
           ASC_SCREENSHOT_IPHONE_DIR: ${{ runner.temp }}/asc-screenshots-iphone
           ASC_SCREENSHOT_IPAD_DIR: ${{ runner.temp }}/asc-screenshots-ipad

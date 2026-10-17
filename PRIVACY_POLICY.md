@@ -1,11 +1,14 @@
-# Política de Privacidade
+# Política de Privacidade — Restaurantes Brasília
 
-O Restaurantes Brasília não exige conta e não coleta localização precisa,
-pagamentos ou dados de saúde. Favoritos são armazenados localmente no aparelho.
+Última atualização: 17 de outubro de 2026.
 
-Ao abrir telefone, mapa ou site, o sistema encaminha a ação ao serviço escolhido,
-que possui sua própria política de privacidade. O aplicativo não promete reservas
-ou disponibilidade em tempo real.
+O Restaurantes Brasília não exige cadastro e não coleta nem transmite dados
+pessoais. Favoritos, visitas e roteiros ficam armazenados localmente no aparelho.
 
-Para solicitações sobre dados de estabelecimentos, use o canal de suporte
-publicado na App Store.
+Quando você escolhe ligar para um estabelecimento ou abrir um mapa, site ou
+serviço externo, o iOS encaminha essa ação ao aplicativo escolhido. O tratamento
+de dados feito por esses serviços segue as políticas próprias deles. O app não
+faz reservas nem confirma horários ou disponibilidade em tempo real.
+
+Para dúvidas, solicitações ou correções sobre esta política ou os dados do
+catálogo, entre em contato pelo [canal de suporte do projeto](https://github.com/socialbot114-cell/restaurantes-brasilia-ios/issues).

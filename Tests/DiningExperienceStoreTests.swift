@@ -52,6 +52,38 @@ final class DiningExperienceStoreTests: XCTestCase {
         XCTAssertEqual(store.visitedRestaurantIDs, ["a", "b"])
     }
 
+    func testCorruptRoutesArePreservedBeforeNewDataCanOverwriteThem() throws {
+        let defaults = makeDefaults()
+        let corruptData = Data("not valid json".utf8)
+        defaults.set(corruptData, forKey: DiningExperienceStore.routesKey)
+
+        let store = DiningExperienceStore(defaults: defaults)
+
+        XCTAssertTrue(store.routes.isEmpty)
+        XCTAssertEqual(defaults.data(forKey: DiningExperienceStore.routesKey), corruptData)
+        XCTAssertEqual(defaults.array(forKey: DiningExperienceStore.routesRecoveryBackupKey) as? [Data], [corruptData])
+        XCTAssertTrue(store.storageRecoveryNotice?.contains("roteiros") == true)
+
+        XCTAssertNotNil(store.createRoute(name: "Novo roteiro"))
+        XCTAssertNotEqual(defaults.data(forKey: DiningExperienceStore.routesKey), corruptData)
+        XCTAssertEqual(defaults.array(forKey: DiningExperienceStore.routesRecoveryBackupKey) as? [Data], [corruptData])
+    }
+
+    func testCorruptVisitsDoNotPreventValidRoutesFromLoading() throws {
+        let defaults = makeDefaults()
+        let route = DiningRoute(id: "route-a", name: "Sábado", restaurantIDs: ["restaurant-a"], createdAt: Date())
+        defaults.set(try JSONEncoder().encode([route]), forKey: DiningExperienceStore.routesKey)
+        let corruptData = Data("{".utf8)
+        defaults.set(corruptData, forKey: DiningExperienceStore.visitsKey)
+
+        let store = DiningExperienceStore(defaults: defaults)
+
+        XCTAssertEqual(store.routes, [route])
+        XCTAssertTrue(store.visits.isEmpty)
+        XCTAssertEqual(defaults.array(forKey: DiningExperienceStore.visitsRecoveryBackupKey) as? [Data], [corruptData])
+        XCTAssertTrue(store.storageRecoveryNotice?.contains("visitas") == true)
+    }
+
     private func makeDefaults() -> UserDefaults {
         let suite = "DiningExperienceStoreTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!

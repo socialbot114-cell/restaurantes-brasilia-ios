@@ -9,6 +9,7 @@ template: ios-swiftui-directory
 catalog:
   path: Resources/Catalog/catalog.json
   required_fields: [id, name, source, last_verified]
+  authorized_photo_rights_statuses: [user-confirmed-authorized]
 privacy_manifest: Resources/PrivacyInfo.xcprivacy
 release:
   artifact_name: restaurantes-brasilia-ios-ipa

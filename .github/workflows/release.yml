@@ -1,28 +1,175 @@
-name: Restaurantes Brasília TestFlight
+name: Restaurantes Brasília App Store build upload
 
 on:
   workflow_dispatch:
+    inputs:
+      marketing_version:
+        description: New version configured in project.yml
+        required: true
+        type: string
+      build_number:
+        description: New build configured in project.yml
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 jobs:
-  preflight:
-    runs-on: ubuntu-latest
+  release:
+    runs-on: macos-26
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - name: Validate JERV release contract
+
+      - name: Install release dependencies
         run: |
           python3 -m venv .venv
           .venv/bin/pip install --disable-pip-version-check PyYAML
+          brew install xcodegen
+
+      - name: Validate release contract and explicit version/build
+        env:
+          MARKETING_VERSION: ${{ inputs.marketing_version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
           .venv/bin/python tools/jerv_cli.py release-check app.yml
-  release:
-    needs: preflight
-    uses: socialbot114-cell/jerv/.github/workflows/ios-testflight.yml@62f0d7cbb425fba144ff11fcf008d27b3c77bbf1
-    with:
-      project_dir: .
-      scheme: RestaurantesBrasilia
-      xcode_project: RestaurantesBrasilia.xcodeproj
-      bundle_id: br.com.restaurantes.bsb
-      artifact_name: restaurantes-brasilia-ios-ipa
-    secrets: inherit
+          .venv/bin/python - <<'PY'
+          import os
+          import yaml
+          project = yaml.safe_load(open("project.yml", encoding="utf-8"))
+          settings = project["targets"]["RestaurantesBrasilia"]["settings"]["base"]
+          expected = (str(settings["MARKETING_VERSION"]), str(settings["CURRENT_PROJECT_VERSION"]))
+          requested = (os.environ["MARKETING_VERSION"], os.environ["BUILD_NUMBER"])
+          if expected != requested:
+              raise SystemExit(f"project.yml targets {expected[0]} ({expected[1]}), not {requested[0]} ({requested[1]})")
+          print(f"Building {requested[0]} ({requested[1]})")
+          PY
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+
+      - name: Run tests before signing
+        run: |
+          set -euo pipefail
+          if xcrun simctl list devices available | grep -q 'iPhone'; then
+            device_id=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/{print $2; exit}')
+            xcodebuild test \
+              -project RestaurantesBrasilia.xcodeproj \
+              -scheme RestaurantesBrasilia \
+              -destination "id=$device_id" \
+              CODE_SIGNING_ALLOWED=NO
+          else
+            xcodebuild build-for-testing \
+              -project RestaurantesBrasilia.xcodeproj \
+              -scheme RestaurantesBrasilia \
+              -destination 'generic/platform=iOS Simulator' \
+              CODE_SIGNING_ALLOWED=NO
+          fi
+
+      - name: Validate required Apple signing secrets
+        env:
+          API_KEY: ${{ secrets.APPLE_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          CERT: ${{ secrets.APPLE_DISTRIBUTION_CERT }}
+          DIST_KEY: ${{ secrets.APPLE_DISTRIBUTION_KEY }}
+          PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          set -euo pipefail
+          for name in API_KEY API_KEY_ID ISSUER_ID CERT DIST_KEY PROFILE; do
+            test -n "${!name:-}" || { echo "Missing Apple secret: $name" >&2; exit 1; }
+          done
+
+      - name: Install signing assets
+        env:
+          CERT: ${{ secrets.APPLE_DISTRIBUTION_CERT }}
+          DIST_KEY: ${{ secrets.APPLE_DISTRIBUTION_KEY }}
+          PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CERT" | base64 --decode > "$RUNNER_TEMP/distribution.cer"
+          printf '%s' "$DIST_KEY" | base64 --decode > "$RUNNER_TEMP/distribution.key"
+          printf '%s' "$PROFILE" | base64 --decode > "$RUNNER_TEMP/distribution.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/distribution.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          profile_uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          profile_name=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
+          team_id=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
+          app_identifier=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$RUNNER_TEMP/profile.plist")
+          test "$app_identifier" = "$team_id.br.com.restaurantes.bsb"
+          printf 'PROFILE_NAME=%s\nTEAM_ID=%s\n' "$profile_name" "$team_id" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/distribution.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/${profile_uuid}.mobileprovision"
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(openssl rand -hex 32)"
+          security create-keychain -p "$password" "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/distribution.key" -k "$keychain" -P '' -A -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/distribution.cer" -k "$keychain" -P '' -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain"
+          security default-keychain -s "$keychain"
+
+      - name: Archive and export IPA
+        env:
+          MARKETING_VERSION: ${{ inputs.marketing_version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project RestaurantesBrasilia.xcodeproj \
+            -scheme RestaurantesBrasilia \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY='Apple Distribution' \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+          python3 - <<'PY'
+          import os, plistlib
+          from pathlib import Path
+          output = Path(os.environ['RUNNER_TEMP']) / 'ExportOptions.plist'
+          output.write_bytes(plistlib.dumps({'method': 'app-store', 'signingStyle': 'manual', 'teamID': os.environ['TEAM_ID'], 'provisioningProfiles': {'br.com.restaurantes.bsb': os.environ['PROFILE_NAME']}}))
+          PY
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Validate IPA version, build, privacy manifest, and signature
+        env:
+          MARKETING_VERSION: ${{ inputs.marketing_version }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          ipa=("$RUNNER_TEMP"/export/*.ipa)
+          test -f "${ipa[0]}"
+          unzip -q "${ipa[0]}" -d "$RUNNER_TEMP/ipa"
+          app=("$RUNNER_TEMP"/ipa/Payload/*.app)
+          info_plist="${app[0]}/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$info_plist" | grep -qx 'br.com.restaurantes.bsb'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$info_plist" | grep -qx "$MARKETING_VERSION"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$info_plist" | grep -qx "$BUILD_NUMBER"
+          test -f "${app[0]}/PrivacyInfo.xcprivacy"
+          codesign --verify --deep --strict "${app[0]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: restaurantes-brasilia-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: error
+
+      - name: Upload build to App Store Connect
+        env:
+          API_KEY: ${{ secrets.APPLE_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/private_keys"
+          printf '%s' "$API_KEY" > "$HOME/private_keys/AuthKey_${API_KEY_ID}.p8"
+          ipa=("$RUNNER_TEMP"/export/*.ipa)
+          xcrun altool --upload-app --type ios --file "${ipa[0]}" --apiKey "$API_KEY_ID" --apiIssuer "$ISSUER_ID"

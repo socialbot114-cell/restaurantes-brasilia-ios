@@ -10,11 +10,9 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
         let firstCard = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'hero-'")).firstMatch
         XCTAssertTrue(firstCard.waitForExistence(timeout: 5))
         firstCard.tap()
-        XCTAssertTrue(app.staticTexts["Foto: Duo Gourmet"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["record-visit"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-detalhe")
-        app.buttons["record-visit"].tap()
-        XCTAssertTrue(app.buttons["save-visit"].waitForExistence(timeout: 5))
+        tap(app.buttons["record-visit"], until: app.buttons["save-visit"])
         app.buttons["save-visit"].tap()
         XCTAssertTrue(app.staticTexts["Meu diário"].waitForExistence(timeout: 5))
         capture(app, named: "restaurantes-diario")
@@ -74,7 +72,7 @@ final class RestaurantesBrasiliaUITests: XCTestCase {
 
     }
 
-    func testVersion110Flows() {
+    func testDiningExperienceFlows() {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.staticTexts["Qual é a sua fome hoje?"].waitForExistence(timeout: 10))

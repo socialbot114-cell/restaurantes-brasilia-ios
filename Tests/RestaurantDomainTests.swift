@@ -19,6 +19,22 @@ final class RestaurantDomainTests: XCTestCase {
         XCTAssertNil(Restaurant.normalizeWebsiteURL("not a website"))
     }
 
+    func testPhoneCallURLRemovesFormattingAndRejectsInvalidNumbers() {
+        let formattedPhone = Restaurant(
+            id: "one", name: "Lugar", category: nil, neighborhood: nil, address: nil,
+            phone: "(61) 99372-4300", website: nil, rating: nil, reviewCount: nil,
+            source: "test", sourceURL: nil, lastVerified: "", dataStatus: "verified"
+        )
+        let invalidPhone = Restaurant(
+            id: "two", name: "Lugar", category: nil, neighborhood: nil, address: nil,
+            phone: "123", website: nil, rating: nil, reviewCount: nil,
+            source: "test", sourceURL: nil, lastVerified: "", dataStatus: "verified"
+        )
+
+        XCTAssertEqual(formattedPhone.phoneCallURL?.absoluteString, "tel:+5561993724300")
+        XCTAssertNil(invalidPhone.phoneCallURL)
+    }
+
     func testPhotoMetadataRoundTripsAndLegacyRecordsStillDecode() throws {
         let withPhoto = Restaurant(
             id: "verona",
@@ -96,6 +112,12 @@ final class RestaurantDomainTests: XCTestCase {
             restaurant.shareText,
             "Casa do Pequi — Brasileira · Asa Sul\nCLS 405\nTel.: (61) 3333-0000\nNota 4,6 no Duo Gourmet\nEncontrado no app Restaurantes Brasília"
         )
+    }
+
+    func testShareTextIncludesRestaurantPageWhenAvailable() {
+        let restaurant = Restaurant(id: "one", name: "Casa do Pequi", category: nil, neighborhood: nil, address: nil, phone: nil, website: "https://example.com/restaurante", rating: nil, reviewCount: nil, source: "test", sourceURL: nil, lastVerified: "2026-01-01", dataStatus: "verified")
+
+        XCTAssertTrue(restaurant.shareText.contains("https://example.com/restaurante"))
     }
 
     func testRatingUsesBrazilianDecimalComma() {

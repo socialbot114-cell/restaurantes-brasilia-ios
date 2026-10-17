@@ -76,6 +76,8 @@ def validate_catalog(manifest: dict[str, Any], base: Path, release: bool = False
         return []
     errors: list[str] = []
     unverified = 0
+    unauthorized_photos = 0
+    authorized_photo_statuses = set(catalog.get("authorized_photo_rights_statuses", []))
     try:
         records = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -93,6 +95,8 @@ def validate_catalog(manifest: dict[str, Any], base: Path, release: bool = False
                 fail(f"catalog record {index} missing {field}", errors)
         if release and record.get("data_status") not in (None, "verified"):
             unverified += 1
+        if release and record.get("photo_asset") and record.get("photo_rights_status") not in authorized_photo_statuses:
+            unauthorized_photos += 1
         record_id = str(record.get("id", ""))
         if record_id in ids:
             fail(f"duplicate catalog id: {record_id}", errors)
@@ -101,6 +105,11 @@ def validate_catalog(manifest: dict[str, Any], base: Path, release: bool = False
         fail("catalog must not be empty", errors)
     if unverified:
         fail(f"catalog contains {unverified} records not marked data_status: verified", errors)
+    if unauthorized_photos:
+        fail(
+            f"catalog contains {unauthorized_photos} photo assets without an authorized photo_rights_status",
+            errors,
+        )
     return errors
 
 
@@ -135,8 +144,10 @@ def run_validation(manifest_path: Path, release: bool = False) -> int:
 def audit(manifest_path: Path) -> int:
     manifest, base = load_manifest(manifest_path)
     findings = []
-    for error in validate_manifest(manifest, base) + validate_catalog(manifest, base) + scan_secrets(base):
-        severity = "blocker" if any(word in error for word in ("secret", "bundle_id", "Privacy Manifest")) else "error"
+    for error in validate_manifest(manifest, base) + validate_catalog(manifest, base, release=True) + scan_secrets(base):
+        severity = "blocker" if any(
+            word in error for word in ("secret", "bundle_id", "Privacy Manifest", "photo assets without")
+        ) else "error"
         findings.append({"severity": severity, "message": error})
     report_dir = base / "reports" / "jerv"
     report_dir.mkdir(parents=True, exist_ok=True)
